@@ -5,3 +5,8 @@ build:
 .PHONY=build-docker
 build-docker:
 	docker build -t zedex:build .
+
+.PHONY=push-docker
+push-docker: build-docker
+	docker tag zedex:build praktiskt/zedex:latest &&\
+	docker push praktiskt/zedex:latest
