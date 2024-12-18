@@ -25,12 +25,7 @@ var getExtensionIndexCmd = &cobra.Command{
 			log.Panic(err)
 		}
 
-		wrapped := struct {
-			Data zed.Extensions `json:"data"`
-		}{
-			Data: extensions,
-		}
-
+		wrapped := extensions.AsWrapped()
 		extensionsJson, err := json.MarshalIndent(wrapped, "", "\t")
 		if err != nil {
 			log.Panic(err)

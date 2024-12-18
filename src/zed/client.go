@@ -55,9 +55,7 @@ func (c *Client) LoadExtensionIndex(indexFile string) (Extensions, error) {
 	}
 	defer file.Close()
 
-	var exResp struct {
-		Data []Extension `json:"data"`
-	}
+	var exResp wrappedExtensions
 	if err := json.NewDecoder(file).Decode(&exResp); err != nil {
 		return Extensions{}, err
 	}
@@ -90,9 +88,7 @@ func (c *Client) GetExtensionsIndex() (Extensions, error) {
 	}
 	defer resp.Body.Close()
 
-	var exResp struct {
-		Data []Extension `json:"data"`
-	}
+	var exResp wrappedExtensions
 	if err := json.NewDecoder(resp.Body).Decode(&exResp); err != nil {
 		return Extensions{}, err
 	}

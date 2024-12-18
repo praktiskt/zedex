@@ -52,11 +52,7 @@ func (co *Controller) Extensions(c *gin.Context) {
 		return e.SchemaVersion <= maxSchemaVersionInt
 	})
 
-	c.JSON(200, struct {
-		Data Extensions `json:"data"`
-	}{
-		Data: extensions,
-	})
+	c.JSON(200, extensions.AsWrapped())
 }
 
 func (co *Controller) DownloadExtension(c *gin.Context) {

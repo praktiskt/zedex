@@ -19,6 +19,15 @@ type Extension struct {
 
 type Extensions []Extension
 
+// wrappedExtension exists only to solve back and forth with the Zed API.
+type wrappedExtensions struct {
+	Data Extensions `json:"data"`
+}
+
+func (ex Extensions) AsWrapped() wrappedExtensions {
+	return wrappedExtensions{Data: ex}
+}
+
 func (e Extensions) Filter(f func(Extension) bool) Extensions {
 	var filtered Extensions
 	for _, ext := range e {
