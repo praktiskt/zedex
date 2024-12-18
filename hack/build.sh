@@ -15,7 +15,7 @@ main() {
 	LDFLAGS="$LDFLAGS -X zedex/cmd.GIT_COMMIT_SHA=$(commit_hash)"
 	LDFLAGS="$LDFLAGS -X zedex/cmd.BUILD_TIME=$(now)"
 	set -x
-	CGO_ENABLED=0 go build -trimpath -ldflags="$LDFLAGS" -o zedex
+	CGO_ENABLED=0 go build -C src -trimpath -ldflags="$LDFLAGS" -o ../zedex
 }
 
 main $@
