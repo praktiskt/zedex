@@ -3,12 +3,18 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
+	"zedex/utils"
 	"zedex/zed"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
+
+var getExtensionIndexCmdConfig = struct {
+	outputDir string
+}{}
 
 var getExtensionIndexCmd = &cobra.Command{
 	Use: "extension-index",
@@ -29,10 +35,20 @@ var getExtensionIndexCmd = &cobra.Command{
 		if err != nil {
 			log.Panic(err)
 		}
-		fmt.Println(string(extensionsJson))
+		if getExtensionIndexCmdConfig.outputDir == "" {
+			fmt.Println(string(extensionsJson))
+		} else {
+			utils.CreateDirIfNotExists(getExtensionIndexCmdConfig.outputDir)
+			extensionsFilePath := getExtensionIndexCmdConfig.outputDir + "/extensions.json"
+			err := os.WriteFile(extensionsFilePath, extensionsJson, 0o644)
+			if err != nil {
+				log.Panic(err)
+			}
+		}
 	},
 }
 
 func init() {
 	getCmd.AddCommand(getExtensionIndexCmd)
+	getExtensionIndexCmd.Flags().StringVar(&getExtensionIndexCmdConfig.outputDir, "output-dir", ".zedex-cache", "output directory of the 'extensions.json' file")
 }
