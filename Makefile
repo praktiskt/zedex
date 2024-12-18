@@ -1,3 +1,7 @@
 .PHONY=build
 build:
-	bash hack/build.sh
+	sh hack/build.sh
+
+.PHONY=build-docker
+build-docker:
+	docker build -t zedex:build .
