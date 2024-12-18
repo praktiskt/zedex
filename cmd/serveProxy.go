@@ -31,6 +31,6 @@ var serveProxyCmd = &cobra.Command{
 func init() {
 	serveCmd.AddCommand(serveProxyCmd)
 	serveProxyCmd.Flags().BoolVar(&serveProxyCmdConfig.localMode, "local-mode", false, "whether to serve extension list and extensions from a local directly or not")
-	serveProxyCmd.Flags().StringVar(&serveProxyCmdConfig.outputDir, "output-dir", "downloaded-extensions", "output directory")
+	serveProxyCmd.Flags().StringVar(&serveProxyCmdConfig.outputDir, "output-dir", ".zedex-cache", "the directory where extensions will be downloaded and served from")
 	serveProxyCmd.Flags().IntVar(&serveProxyCmdConfig.port, "port", 8080, "port to serve proxy on")
 }
