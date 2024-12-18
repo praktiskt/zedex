@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"path"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,8 @@ func (co *Controller) Extensions(c *gin.Context) {
 	var err error
 
 	if co.localMode {
-		extensions, err = co.zed.LoadExtensionIndex("extensions.json")
+		extensionsFile := path.Join(co.zed.extensionsLocalDir, "extensions.json")
+		extensions, err = co.zed.LoadExtensionIndex(extensionsFile)
 	} else {
 		extensions, err = co.zed.GetExtensionsIndex()
 	}
