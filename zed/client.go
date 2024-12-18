@@ -6,13 +6,15 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 
 	"zedex/utils"
 )
 
 type Client struct {
-	host             string
-	maxSchemaVersion int
+	host               string
+	maxSchemaVersion   int
+	extensionsLocalDir string
 }
 
 func NewZedClient(maxSchemaVersion int) Client {
@@ -20,6 +22,47 @@ func NewZedClient(maxSchemaVersion int) Client {
 		maxSchemaVersion: maxSchemaVersion,
 		host:             utils.EnvWithFallback("ZED_HOST", "https://api.zed.dev"),
 	}
+}
+
+func (c *Client) WithExtensionsLocalDir(extensionsLocalDir string) *Client {
+	c.extensionsLocalDir = extensionsLocalDir
+	return c
+}
+
+func (c *Client) ensureExtensionsLocalDir() error {
+	if c.extensionsLocalDir == "" {
+		return nil
+	}
+	return os.MkdirAll(c.extensionsLocalDir, os.ModePerm)
+}
+
+// LoadExtensionIndex loads the extensions index from a local file.
+//
+// This function takes a file path as an argument, reads the file, and returns a list of extensions.
+//
+// Args:
+//
+//	indexFile (string): The path to the file containing the extensions index.
+//
+// Returns:
+//
+//	Extensions: A list of extensions read from the file.
+//	error: Any error that occurs during the loading process.
+func (c *Client) LoadExtensionIndex(indexFile string) (Extensions, error) {
+	file, err := os.Open(indexFile)
+	if err != nil {
+		return Extensions{}, err
+	}
+	defer file.Close()
+
+	var exResp struct {
+		Data []Extension `json:"data"`
+	}
+	if err := json.NewDecoder(file).Decode(&exResp); err != nil {
+		return Extensions{}, err
+	}
+
+	return exResp.Data, nil
 }
 
 // GetExtensionsIndex retrieves the list of available extensions from the Zed API.
@@ -98,4 +141,32 @@ func (c *Client) DownloadExtensionArchive(extension Extension, minSchemaVersion 
 	}
 
 	return io.ReadAll(resp.Body)
+}
+
+func (c *Client) DownloadExtensionArchiveDefault(extension Extension) ([]byte, error) {
+	archiveBytes, err := c.DownloadExtensionArchive(extension, 0, "0.0.0", "100.0.0") // TODO: Fix version "hack"
+	if err != nil {
+		return []byte{}, err
+	}
+
+	if err := c.ensureExtensionsLocalDir(); err != nil {
+		return []byte{}, err
+	}
+
+	return archiveBytes, nil
+}
+
+func (c *Client) LoadExtensionArchive(extension Extension) ([]byte, error) {
+	if err := c.ensureExtensionsLocalDir(); err != nil {
+		return []byte{}, err
+	}
+
+	filePath := fmt.Sprintf("%s/%s.tar.gz", c.extensionsLocalDir, extension.ID)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return []byte{}, err
+	}
+	defer file.Close()
+
+	return io.ReadAll(file)
 }
