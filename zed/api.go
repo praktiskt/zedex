@@ -8,7 +8,10 @@ type API struct {
 }
 
 func NewAPI(localMode bool, zedClient Client) API {
-	return API{zedClient: zedClient}
+	return API{
+		zedClient: zedClient,
+		localMode: localMode,
+	}
 }
 
 func (api *API) Router() *gin.Engine {

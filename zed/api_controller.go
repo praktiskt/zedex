@@ -19,7 +19,15 @@ func NewController(localMode bool, zedClient Client) Controller {
 }
 
 func (co *Controller) Extensions(c *gin.Context) {
-	extensions, err := co.zed.GetExtensionsIndex()
+	var extensions Extensions
+	var err error
+
+	if co.localMode {
+		extensions, err = co.zed.LoadExtensionIndex("extensions.json")
+	} else {
+		extensions, err = co.zed.GetExtensionsIndex()
+	}
+
 	if err != nil {
 		c.JSON(500, gin.H{
 			"error":   "Internal Server Error",
