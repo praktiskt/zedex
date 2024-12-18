@@ -19,7 +19,7 @@ zedex get extension-index
 zedex get extension $(cat .zedex-cache/extensions.json | jq -r '.data[].id' | xargs)
 
 # Serve the downloaded index and its extensions
-zedex serve proxy --local-mode --port=8080
+zedex serve --local-mode --port=8080
 ```
 
 Modify the Zed-settings file (`settings.json`) to use the proxy:
