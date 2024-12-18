@@ -11,11 +11,9 @@ type Controller struct {
 	localMode bool
 }
 
-func NewController(localMode bool) Controller {
-	zc := NewZedClient(1)
-	zc.WithExtensionsLocalDir("downloaded-extensions")
+func NewController(localMode bool, zedClient Client) Controller {
 	return Controller{
-		zed:       zc,
+		zed:       zedClient,
 		localMode: localMode,
 	}
 }

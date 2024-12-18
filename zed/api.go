@@ -2,15 +2,18 @@ package zed
 
 import "github.com/gin-gonic/gin"
 
-type API struct{}
-
-func NewAPI() API {
-	return API{}
+type API struct {
+	localMode bool
+	zedClient Client
 }
 
-func (api *API) Router(localMode bool) *gin.Engine {
+func NewAPI(localMode bool, zedClient Client) API {
+	return API{zedClient: zedClient}
+}
+
+func (api *API) Router() *gin.Engine {
 	router := gin.Default()
-	controller := NewController(localMode)
+	controller := NewController(api.localMode, api.zedClient)
 	router.GET("/extensions", controller.Extensions)
 	router.GET("/extensions/:id/download", controller.DownloadExtension)
 
