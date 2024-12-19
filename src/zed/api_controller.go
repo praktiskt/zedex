@@ -3,6 +3,7 @@ package zed
 import (
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,6 +52,13 @@ func (co *Controller) Extensions(c *gin.Context) {
 	extensions = extensions.Filter(func(e Extension) bool {
 		return e.SchemaVersion <= maxSchemaVersionInt
 	})
+
+	if filter := c.DefaultQuery("filter", ""); filter != "" {
+		extensions = extensions.Filter(func(e Extension) bool {
+			return strings.Contains(strings.ToLower(e.Description), strings.ToLower(filter)) ||
+				strings.Contains(strings.ToLower(e.ID), strings.ToLower(filter))
+		})
+	}
 
 	c.JSON(200, extensions.AsWrapped())
 }
