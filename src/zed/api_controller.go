@@ -100,3 +100,24 @@ func (co *Controller) DownloadExtension(c *gin.Context) {
 
 	c.Data(200, "application/octet-stream", bytes)
 }
+
+func (co *Controller) LatestVersion(c *gin.Context) {
+	var v Version
+	var err error
+	if co.localMode {
+		versionFile := path.Join(co.zed.extensionsLocalDir, "releases_latest.json")
+		v, err = co.zed.LoadLatestZedVersionFromFile(versionFile)
+	} else {
+		v, err = co.zed.GetLatestZedVersion()
+	}
+
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error":   "Internal Server Error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(200, v)
+}
