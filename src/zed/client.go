@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
 
 	"zedex/utils"
 )
@@ -165,4 +166,36 @@ func (c *Client) LoadExtensionArchive(extension Extension) ([]byte, error) {
 	defer file.Close()
 
 	return io.ReadAll(file)
+}
+
+func (c *Client) GetLatestZedVersion() (Version, error) {
+	os := runtime.GOOS
+	arch := utils.IfElse(runtime.GOARCH == "amd64", "x86_64", runtime.GOARCH)
+	host := "https://zed.dev" // For some reason, releases are on zed.dev/api, not api.zed.dev, so we cant use c.host.
+	u := fmt.Sprintf("%s/api/releases/latest?asset=zed&os=%s&arch=%s", host, os, arch)
+	resp, err := http.Get(u)
+	if err != nil {
+		return Version{}, err
+	}
+	var ver Version
+	if err := json.NewDecoder(resp.Body).Decode(&ver); err != nil {
+		return Version{}, err
+	}
+
+	return ver, nil
+}
+
+func (c *Client) LoadLatestZedVersionFromFile(versionFile string) (Version, error) {
+	file, err := os.Open(versionFile)
+	if err != nil {
+		return Version{}, err
+	}
+	defer file.Close()
+
+	var ver Version
+	if err := json.NewDecoder(file).Decode(&ver); err != nil {
+		return Version{}, err
+	}
+
+	return ver, nil
 }
