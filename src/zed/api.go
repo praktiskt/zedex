@@ -21,7 +21,7 @@ func (api *API) Router() *gin.Engine {
 	router.GET("/extensions/:id/download", controller.DownloadExtension)
 
 	// TODO: Passthrough for now. Should we do something else?
-	router.GET("/api/*", func(c *gin.Context) {
+	router.GET("/api/*path", func(c *gin.Context) {
 		if c.Request.URL.Path != "/api/releases/latest" && api.localMode {
 			// TODO: Implement latest version
 			return
