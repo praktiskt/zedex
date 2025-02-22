@@ -105,7 +105,7 @@ func (co *Controller) LatestVersion(c *gin.Context) {
 	var v Version
 	var err error
 	if co.localMode {
-		versionFile := path.Join(co.zed.extensionsLocalDir, "releases_latest.json")
+		versionFile := path.Join(co.zed.extensionsLocalDir, "latest_release.json")
 		v, err = co.zed.LoadLatestZedVersionFromFile(versionFile)
 	} else {
 		v, err = co.zed.GetLatestZedVersion()

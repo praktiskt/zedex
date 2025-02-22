@@ -1,6 +1,8 @@
 package zed
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+)
 
 type API struct {
 	localMode bool
@@ -22,8 +24,8 @@ func (api *API) Router() *gin.Engine {
 
 	// TODO: Passthrough for now. Should we do something else?
 	router.GET("/api/*path", func(c *gin.Context) {
-		if c.Request.URL.Path != "/api/releases/latest" && api.localMode {
-			// TODO: Implement latest version
+		if c.Request.URL.Path == "/api/releases/latest" && api.localMode {
+			controller.LatestVersion(c)
 			return
 		}
 		// Redirect to zed.host if not /api/releases
