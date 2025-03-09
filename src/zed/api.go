@@ -21,6 +21,7 @@ func (api *API) Router() *gin.Engine {
 	controller := NewController(api.localMode, api.zedClient)
 	router.GET("/extensions", controller.Extensions)
 	router.GET("/extensions/:id/download", controller.DownloadExtension)
+	router.GET("/extensions/:id/:version/download", controller.DownloadExtension)
 
 	// TODO: Passthrough for now. Should we do something else?
 	router.GET("/api/*path", func(c *gin.Context) {
