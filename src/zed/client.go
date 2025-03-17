@@ -222,23 +222,7 @@ func (c *Client) GetReleaseNotes(version string) (ReleaseNotes, error) {
 }
 
 func (c *Client) GetLatestReleaseNotes() (ReleaseNotes, error) {
-	u := fmt.Sprintf("%s/api/release_notes/v2/stable/", c.host)
-	if _, err := url.Parse(u); err != nil {
-		return ReleaseNotes{}, err
-	}
-
-	resp, err := http.Get(u)
-	if err != nil {
-		return ReleaseNotes{}, err
-	}
-	defer resp.Body.Close()
-
-	var releaseNotes ReleaseNotes
-	if err := json.NewDecoder(resp.Body).Decode(&releaseNotes); err != nil {
-		return ReleaseNotes{}, err
-	}
-
-	return releaseNotes, nil
+	return c.GetReleaseNotes("")
 }
 
 func (c *Client) LoadReleaseNotes(releaseNotesFile string) (ReleaseNotes, error) {
