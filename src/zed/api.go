@@ -1,6 +1,8 @@
 package zed
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,12 +25,16 @@ func (api *API) Router() *gin.Engine {
 	router.GET("/extensions/:id/download", controller.DownloadExtension)
 	router.GET("/extensions/:id/:version/download", controller.DownloadExtension)
 
-	// TODO: Passthrough for now. Should we do something else?
 	router.GET("/api/*path", func(c *gin.Context) {
 		if c.Request.URL.Path == "/api/releases/latest" && api.localMode {
 			controller.LatestVersion(c)
 			return
 		}
+		if strings.HasPrefix(c.Request.URL.Path, "/api/release_notes/v2/stable/") && api.localMode {
+			controller.LatestReleaseNotes(c)
+			return
+		}
+
 		// Redirect to zed.host if not /api/releases
 		c.Redirect(301, controller.zed.host+c.Request.URL.RequestURI())
 	})

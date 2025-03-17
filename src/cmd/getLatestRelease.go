@@ -26,10 +26,21 @@ var getLatestReleaseCmd = &cobra.Command{
 			log.Panic(err)
 		}
 
+		latestReleaseNotes, err := zc.GetLatestReleaseNotes()
+		if err != nil {
+			log.Panic(err)
+		}
+
 		latestReleaseJson, err := json.MarshalIndent(latestRelease, "", "\t")
 		if err != nil {
 			log.Panic(err)
 		}
+
+		latestReleaseNotesJson, err := json.MarshalIndent(latestReleaseNotes, "", "\t")
+		if err != nil {
+			log.Panic(err)
+		}
+
 		if getLatestReleaseCmdConfig.outputDir == "" {
 			fmt.Println(string(latestReleaseJson))
 			return
@@ -39,10 +50,15 @@ var getLatestReleaseCmd = &cobra.Command{
 		if err := os.WriteFile(latestReleasePath, latestReleaseJson, 0o644); err != nil {
 			log.Panic(err)
 		}
+
+		latestReleaseNotePath := getLatestReleaseCmdConfig.outputDir + "/latest_release_notes.json"
+		if err := os.WriteFile(latestReleaseNotePath, latestReleaseNotesJson, 0o644); err != nil {
+			log.Panic(err)
+		}
 	},
 }
 
 func init() {
 	getCmd.AddCommand(getLatestReleaseCmd)
-	getLatestReleaseCmd.Flags().StringVar(&getLatestReleaseCmdConfig.outputDir, "output-dir", ".zedex-cache", "output directory of the 'latest_release.json' file")
+	getLatestReleaseCmd.Flags().StringVar(&getLatestReleaseCmdConfig.outputDir, "output-dir", ".zedex-cache", "output directory of the 'latest_release.json' and 'latest_release_notes.json' file")
 }

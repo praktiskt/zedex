@@ -13,6 +13,7 @@ import (
 )
 
 type Client struct {
+	apiHost            string
 	host               string
 	maxSchemaVersion   int
 	extensionsLocalDir string
@@ -21,7 +22,8 @@ type Client struct {
 func NewZedClient(maxSchemaVersion int) Client {
 	return Client{
 		maxSchemaVersion: maxSchemaVersion,
-		host:             utils.EnvWithFallback("ZED_HOST", "https://api.zed.dev"),
+		host:             utils.EnvWithFallback("ZED_HOST", "https://zed.dev"),
+		apiHost:          utils.EnvWithFallback("ZED_API_HOST", "https://api.zed.dev"),
 	}
 }
 
@@ -78,7 +80,7 @@ func (c *Client) LoadExtensionIndex(indexFile string) (Extensions, error) {
 //	Extensions: A list of extensions that match the provided schema version.
 //	error: Any error that occurs during the retrieval process.
 func (c *Client) GetExtensionsIndex() (Extensions, error) {
-	u := fmt.Sprintf("%s/extensions?max_schema_version=%d", c.host, c.maxSchemaVersion)
+	u := fmt.Sprintf("%s/extensions?max_schema_version=%d", c.apiHost, c.maxSchemaVersion)
 	if _, err := url.Parse(u); err != nil {
 		return Extensions{}, err
 	}
@@ -117,7 +119,7 @@ func (c *Client) GetExtensionsIndex() (Extensions, error) {
 func (c *Client) DownloadExtensionArchive(extension Extension, minSchemaVersion int, minWasmAPIVersion string, maxWasmAPIVersion string) ([]byte, error) {
 	u := fmt.Sprintf(
 		"%s/extensions/%s/download?min_schema_version=%d&max_schema_version=%d&min_wasm_api_version=%s&max_wasm_api_version=%s",
-		c.host,
+		c.apiHost,
 		extension.ID,
 		minSchemaVersion,
 		c.maxSchemaVersion,
@@ -171,8 +173,7 @@ func (c *Client) LoadExtensionArchive(extension Extension) ([]byte, error) {
 func (c *Client) GetLatestZedVersion() (Version, error) {
 	os := runtime.GOOS
 	arch := utils.IfElse(runtime.GOARCH == "amd64", "x86_64", runtime.GOARCH)
-	host := "https://zed.dev" // For some reason, releases are on zed.dev/api, not api.zed.dev, so we cant use c.host.
-	u := fmt.Sprintf("%s/api/releases/latest?asset=zed&os=%s&arch=%s", host, os, arch)
+	u := fmt.Sprintf("%s/api/releases/latest?asset=zed&os=%s&arch=%s", c.host, os, arch)
 	resp, err := http.Get(u)
 	if err != nil {
 		return Version{}, err
@@ -198,4 +199,59 @@ func (c *Client) LoadLatestZedVersionFromFile(versionFile string) (Version, erro
 	}
 
 	return ver, nil
+}
+
+func (c *Client) GetReleaseNotes(version string) (string, error) {
+	u := fmt.Sprintf("%s/api/release_notes/v2/stable/%s", c.apiHost, version)
+	if _, err := url.Parse(u); err != nil {
+		return "", err
+	}
+
+	resp, err := http.Get(u)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var releaseNotes string
+	if err := json.NewDecoder(resp.Body).Decode(&releaseNotes); err != nil {
+		return "", err
+	}
+
+	return releaseNotes, nil
+}
+
+func (c *Client) GetLatestReleaseNotes() (ReleaseNotes, error) {
+	u := fmt.Sprintf("%s/api/release_notes/v2/stable/", c.host)
+	if _, err := url.Parse(u); err != nil {
+		return ReleaseNotes{}, err
+	}
+
+	resp, err := http.Get(u)
+	if err != nil {
+		return ReleaseNotes{}, err
+	}
+	defer resp.Body.Close()
+
+	var releaseNotes ReleaseNotes
+	if err := json.NewDecoder(resp.Body).Decode(&releaseNotes); err != nil {
+		return ReleaseNotes{}, err
+	}
+
+	return releaseNotes, nil
+}
+
+func (c *Client) LoadReleaseNotes(releaseNotesFile string) (ReleaseNotes, error) {
+	file, err := os.Open(releaseNotesFile)
+	if err != nil {
+		return ReleaseNotes{}, err
+	}
+	defer file.Close()
+
+	var releaseNotes ReleaseNotes
+	if err := json.NewDecoder(file).Decode(&releaseNotes); err != nil {
+		return ReleaseNotes{}, err
+	}
+
+	return releaseNotes, nil
 }

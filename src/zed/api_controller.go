@@ -121,3 +121,24 @@ func (co *Controller) LatestVersion(c *gin.Context) {
 
 	c.JSON(200, v)
 }
+
+func (co *Controller) LatestReleaseNotes(c *gin.Context) {
+	var v ReleaseNotes
+	var err error
+	if co.localMode {
+		versionFile := path.Join(co.zed.extensionsLocalDir, "latest_release_notes.json")
+		v, err = co.zed.LoadReleaseNotes(versionFile)
+	} else {
+		v, err = co.zed.GetLatestReleaseNotes()
+	}
+
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error":   "Internal Server Error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(200, v)
+}
