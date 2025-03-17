@@ -5,8 +5,9 @@ Self-hosted Zed extension API. Useful for the few who want control over what get
 `zedex` can currently;
 * Download the extension index
 * Download individual extensions
+* Download the latest release, and its release notes
 * Serve the downloaded extension index and downloaded extensions
-* List the latest version of Zed, and store a reference to it (version+url)
+* List the latest version of Zed, and store a reference to it (version+url), and its release notes
 * (Be a transparent Zed proxy, to see what calls Zed makes)
 
 ## Usage
