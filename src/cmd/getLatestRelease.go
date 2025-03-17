@@ -26,7 +26,7 @@ var getLatestReleaseCmd = &cobra.Command{
 			log.Panic(err)
 		}
 
-		latestReleaseNotes, err := zc.GetLatestReleaseNotes()
+		latestReleaseNotes, err := zc.GetReleaseNotes(latestRelease.Version)
 		if err != nil {
 			log.Panic(err)
 		}

@@ -201,21 +201,21 @@ func (c *Client) LoadLatestZedVersionFromFile(versionFile string) (Version, erro
 	return ver, nil
 }
 
-func (c *Client) GetReleaseNotes(version string) (string, error) {
-	u := fmt.Sprintf("%s/api/release_notes/v2/stable/%s", c.apiHost, version)
+func (c *Client) GetReleaseNotes(version string) (ReleaseNotes, error) {
+	u := fmt.Sprintf("%s/api/release_notes/v2/stable/%s", c.host, version)
 	if _, err := url.Parse(u); err != nil {
-		return "", err
+		return ReleaseNotes{}, err
 	}
 
 	resp, err := http.Get(u)
 	if err != nil {
-		return "", err
+		return ReleaseNotes{}, err
 	}
 	defer resp.Body.Close()
 
-	var releaseNotes string
+	var releaseNotes ReleaseNotes
 	if err := json.NewDecoder(resp.Body).Decode(&releaseNotes); err != nil {
-		return "", err
+		return ReleaseNotes{}, err
 	}
 
 	return releaseNotes, nil
