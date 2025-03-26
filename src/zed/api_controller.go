@@ -55,8 +55,7 @@ func (co *Controller) Extensions(c *gin.Context) {
 
 	if filter := c.DefaultQuery("filter", ""); filter != "" {
 		extensions = extensions.Filter(func(e Extension) bool {
-			return strings.Contains(strings.ToLower(e.Description), strings.ToLower(filter)) ||
-				strings.Contains(strings.ToLower(e.ID), strings.ToLower(filter))
+			return strings.Contains(strings.ToLower(e.AsJsonStr()), strings.ToLower(filter))
 		})
 	}
 

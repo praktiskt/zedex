@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"encoding/json"
 	"slices"
 	"sort"
 )
@@ -17,6 +18,11 @@ type Extension struct {
 	WasmAPIVersion string   `json:"wasm_api_version"`
 	PublishedAt    string   `json:"published_at"`
 	DownloadCount  int      `json:"download_count"`
+}
+
+func (e Extension) AsJsonStr() string {
+	jsonStr, _ := json.Marshal(e)
+	return string(jsonStr)
 }
 
 type Extensions []Extension
