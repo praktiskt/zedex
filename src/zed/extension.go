@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"slices"
 	"sort"
 )
 
@@ -11,6 +12,7 @@ type Extension struct {
 	Description    string   `json:"description"`
 	Authors        []string `json:"authors"`
 	Repository     string   `json:"repository"`
+	Provides       []string `json:"provides"`
 	SchemaVersion  int      `json:"schema_version"`
 	WasmAPIVersion string   `json:"wasm_api_version"`
 	PublishedAt    string   `json:"published_at"`
@@ -41,6 +43,12 @@ func (e Extensions) Filter(f func(Extension) bool) Extensions {
 func (e Extensions) FilterBySchemaVersion(version int) Extensions {
 	return e.Filter(func(ext Extension) bool {
 		return ext.SchemaVersion == version
+	})
+}
+
+func (e Extensions) FilterByProvides(t string) Extensions {
+	return e.Filter(func(ext Extension) bool {
+		return slices.Contains(ext.Provides, t)
 	})
 }
 
