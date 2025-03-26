@@ -60,6 +60,10 @@ func (co *Controller) Extensions(c *gin.Context) {
 		})
 	}
 
+	if filter := c.DefaultQuery("provides", ""); filter != "" {
+		extensions = extensions.FilterByProvides(filter)
+	}
+
 	c.JSON(200, extensions.AsWrapped())
 }
 
