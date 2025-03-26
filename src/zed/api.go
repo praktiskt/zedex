@@ -38,6 +38,8 @@ func (api *API) Router() *gin.Engine {
 		// Redirect to zed.host if not /api/releases
 		c.Redirect(301, controller.zed.host+c.Request.URL.RequestURI())
 	})
+	router.GET("/native_app_signin", controller.NativeAppSignin)
+	router.GET("/native_app_signin_succeeded", controller.NativeAppSigninSucceeded)
 
 	return router
 }
