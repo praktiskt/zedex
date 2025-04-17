@@ -13,8 +13,13 @@ import (
 	"strconv"
 	"strings"
 
+	"zedex/pb"
+
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/klauspost/compress/zstd"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 )
 
 type Controller struct {
@@ -238,4 +243,166 @@ func (co *Controller) NativeAppSigninSucceeded(c *gin.Context) {
 		</html>`,
 		),
 	)
+}
+
+func (co *Controller) HandleRpcRequest(c *gin.Context) {
+	c.Redirect(301, "http://localhost:8080/some-url")
+}
+
+func zstdCompress(b []byte) []byte {
+	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel((4)))
+	if err != nil {
+		panic(err)
+	}
+	compressedBytes := encoder.EncodeAll(b, make([]byte, 0, len(b)))
+	return compressedBytes
+}
+
+// https://github.com/zed-industries/zed/blob/1e22faebc9f9c8da685a34b15c17f2bc2b418b26/crates/collab/src/rpc.rs#L1092
+func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
+	protocolVersion := c.GetHeader("Protocol-Version")
+	logrus.Info("protocolVersion", protocolVersion)
+	if protocolVersion != "" {
+		c.JSON(http.StatusUpgradeRequired, gin.H{"error": "client must be upgraded"})
+		return
+	}
+
+	appVersionHeader := c.GetHeader("App-Version")
+	logrus.Info("appVersionHeader:", appVersionHeader)
+	if appVersionHeader != "" {
+		c.JSON(http.StatusUpgradeRequired, gin.H{"error": "no version header found"})
+		return
+	}
+
+	version, err := parseAppVersion(appVersionHeader)
+	logrus.Infof("parsedAppVersion: %v, error: %v", version, err)
+	if err != nil {
+		c.JSON(http.StatusUpgradeRequired, gin.H{"error": "invalid version header"})
+		return
+	}
+
+	// TODO
+	if false { // !version.CanCollaborate() {
+		c.JSON(http.StatusUpgradeRequired, gin.H{"error": "client must be upgraded"})
+		return
+	}
+
+	socketAddress := c.ClientIP()
+
+	upgrader := websocket.Upgrader{} // use default options
+	c.Request.Header.Add("Upgrade", "websocket")
+	c.Request.Header.Add("Connection", "upgrade")
+	c.Request.Header.Add("Sec-WebSocket-Protocol", "chat")
+	c.Request.Header.Add("Sec-WebSocket-Version", "13")
+	c.Request.Header.Add("Sec-WebSocket-Key", "h3DWLuXsI9/GkTo+sIjyzw==")
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		logrus.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upgrade connection"})
+		return
+	}
+	// defer conn.Close()
+
+	conn.SetReadLimit(1024 * 1024)
+	go func() {
+		for {
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				logrus.Errorf("failed to receive message: %v", err)
+				continue
+			}
+
+			handleWebSocketMessage(conn, message)
+		}
+	}()
+
+	helloMsg := &pb.Hello{
+		PeerId: &pb.PeerId{Id: 1},
+	}
+	envelope := pb.Envelope{
+		Id: 1,
+		Payload: &pb.Envelope_Hello{
+			Hello: helloMsg,
+		},
+	}
+	data, err := proto.Marshal(&envelope)
+
+	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel((4)))
+	if err != nil {
+		panic(err)
+	}
+	compressedBytes := encoder.EncodeAll(data, make([]byte, 0, len(data)))
+	if err = conn.WriteMessage(websocket.BinaryMessage, compressedBytes); err != nil {
+		logrus.Error(err)
+	}
+
+	server := &Server{}
+	principal := &Principal{}
+	countryCodeHeader := c.GetHeader("Cloudflare-Ip-Country")
+	systemIdHeader := c.GetHeader("System-Id")
+	handleConnection(server, principal, version, socketAddress, countryCodeHeader, systemIdHeader)
+}
+
+type Server struct{}
+
+type Principal struct{}
+
+func handleWebSocketMessage(conn *websocket.Conn, message []byte) {
+	// TODO: Implement handling of WebSocket messages
+
+	var envelope pb.Envelope
+	err := proto.Unmarshal(message, &envelope)
+	if err != nil {
+		logrus.Errorf("failed to unmarshal message: %v", err)
+		return
+	}
+	switch msg := envelope.Payload.(type) {
+	case *pb.Envelope_Hello:
+		logrus.Infof("Received hello message: %v", msg)
+	case *pb.Envelope_GetUsers:
+		logrus.Infof("Received get users message: %v", msg)
+		user := &pb.User{
+			Id:          1,
+			GithubLogin: "praktiskt",
+			AvatarUrl:   "https://avatars.githubusercontent.com/u/21065360?v=4",
+		}
+		*user.Email = "mafur90@gmail.com"
+		r := uint32(1)
+		resp := pb.Envelope{
+			Id:           2,
+			RespondingTo: &r,
+			Payload: &pb.Envelope_UsersResponse{
+				UsersResponse: &pb.UsersResponse{
+					Users: []*pb.User{user},
+				},
+			},
+		}
+		b, err := proto.Marshal(&resp)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		conn.WriteMessage(websocket.BinaryMessage, zstdCompress(b))
+	case *pb.Envelope_GetPrivateUserInfo:
+		logrus.Infof("Received get private users message: %v", msg)
+	case *pb.Envelope_UsersResponse:
+		logrus.Infof("Received users response message: %v", msg)
+	default:
+		logrus.Infof("Received unmapped message: %v", msg)
+		logrus.Infof("Received WebSocket message: %v", string(message))
+		logrus.Infof("Received WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
+
+	}
+}
+
+func handleConnection(server *Server, principal *Principal, version Version, socketAddress string, countryCodeHeader string, systemIdHeader string) {
+	// TODO: Implement handling of WebSocket connections
+	logrus.Infof("New WebSocket connection from %s", socketAddress)
+}
+
+func parseAppVersion(appVersionHeader string) (Version, error) {
+	// TODO: Implement parsing of app version
+	logrus.Infof("Parsing app version from header: %s", appVersionHeader)
+	return Version{}, nil
 }
