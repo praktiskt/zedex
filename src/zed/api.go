@@ -41,7 +41,7 @@ func (api *API) Router() *gin.Engine {
 	router.GET("/native_app_signin", controller.NativeAppSignin)
 	router.GET("/native_app_signin_succeeded", controller.NativeAppSigninSucceeded)
 	router.GET("/rpc", controller.HandleRpcRequest)
-	router.GET("/some-url", controller.HandleWebSocketRequest)
+	router.GET("/handle-rpc", controller.HandleWebSocketRequest)
 	router.GET("/favicon.ico", func(c *gin.Context) {
 		c.String(200, "plain/text", "")
 	})
