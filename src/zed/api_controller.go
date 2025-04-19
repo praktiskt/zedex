@@ -13,13 +13,9 @@ import (
 	"strconv"
 	"strings"
 
-	"zedex/pb"
-
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/klauspost/compress/zstd"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/proto"
 )
 
 type Controller struct {
@@ -274,171 +270,13 @@ func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
 		return
 	}
 
-	version, err := parseAppVersion(appVersionHeader)
-	logrus.Infof("parsedAppVersion: %v, error: %v", version, err)
-	if err != nil {
-		c.JSON(http.StatusUpgradeRequired, gin.H{"error": "invalid version header"})
-		return
-	}
-
 	// TODO
 	if false { // !version.CanCollaborate() {
 		c.JSON(http.StatusUpgradeRequired, gin.H{"error": "client must be upgraded"})
 		return
 	}
 
-	socketAddress := c.ClientIP()
-
-	upgrader := websocket.Upgrader{} // use default options
-	c.Request.Header.Add("Upgrade", "websocket")
-	c.Request.Header.Add("Connection", "upgrade")
-	c.Request.Header.Add("Sec-WebSocket-Protocol", "chat")
-	c.Request.Header.Add("Sec-WebSocket-Version", "13")
-	c.Request.Header.Add("Sec-WebSocket-Key", "h3DWLuXsI9/GkTo+sIjyzw==")
-
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		logrus.Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upgrade connection"})
-		return
-	}
-	// defer conn.Close()
-
-	conn.SetReadLimit(1024 * 1024)
-	go func() {
-		for {
-			_, message, err := conn.ReadMessage()
-			if err != nil {
-				logrus.Errorf("failed to receive message: %v", err)
-				return
-			}
-
-			handleWebSocketMessage(conn, message)
-		}
-	}()
-
-	helloMsg := &pb.Hello{
-		PeerId: &pb.PeerId{Id: 1},
-	}
-	envelope := pb.Envelope{
-		Id: 1,
-		Payload: &pb.Envelope_Hello{
-			Hello: helloMsg,
-		},
-	}
-	data, err := proto.Marshal(&envelope)
-
-	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel((4)))
-	if err != nil {
-		panic(err)
-	}
-	compressedBytes := encoder.EncodeAll(data, make([]byte, 0, len(data)))
-	if err = conn.WriteMessage(websocket.BinaryMessage, compressedBytes); err != nil {
-		logrus.Error(err)
-	}
-
-	server := &Server{}
-	principal := &Principal{}
-	countryCodeHeader := c.GetHeader("Cloudflare-Ip-Country")
-	systemIdHeader := c.GetHeader("System-Id")
-	handleConnection(server, principal, version, socketAddress, countryCodeHeader, systemIdHeader)
-}
-
-type Server struct{}
-
-type Principal struct{}
-
-func handleWebSocketMessage(conn *websocket.Conn, message []byte) {
-	var envelope pb.Envelope
-	err := proto.Unmarshal(message, &envelope)
-	if err != nil {
-		logrus.Errorf("failed to unmarshal message: %v", err)
-		return
-	}
-	switch msg := envelope.Payload.(type) {
-	case *pb.Envelope_Hello:
-		logrus.Infof("Received hello message: %v", msg)
-	case *pb.Envelope_GetUsers:
-		logrus.Infof("Received get users message: %v", msg)
-		user := &pb.User{
-			Id:          1,
-			GithubLogin: "anonymous",
-			AvatarUrl:   "",
-		}
-		resp := pb.Envelope{
-			Id:           2,
-			RespondingTo: &envelope.Id,
-			Payload: &pb.Envelope_UsersResponse{
-				UsersResponse: &pb.UsersResponse{
-					Users: []*pb.User{user},
-				},
-			},
-		}
-
-		b, err := proto.Marshal(&resp)
-		if err != nil {
-			logrus.Error(err)
-			return
-		}
-		conn.WriteMessage(websocket.BinaryMessage, zstdCompress(b))
-	case *pb.Envelope_GetPrivateUserInfo:
-		logrus.Infof("Received get private users message: %v", msg)
-		resp := pb.Envelope{
-			Id:               3,
-			RespondingTo:     &envelope.Id,
-			OriginalSenderId: &pb.PeerId{Id: 2},
-			Payload: &pb.Envelope_GetPrivateUserInfoResponse{
-				GetPrivateUserInfoResponse: &pb.GetPrivateUserInfoResponse{
-					MetricsId: "123",
-					Staff:     false,
-					Flags:     []string{},
-				},
-			},
-		}
-		b, err := proto.Marshal(&resp)
-		if err != nil {
-			logrus.Error(err)
-			return
-		}
-
-		conn.WriteMessage(websocket.BinaryMessage, zstdCompress(b))
-
-	case *pb.Envelope_AcceptTermsOfService:
-		logrus.Infof("Received TOS message: %v", msg)
-		resp := pb.Envelope{
-			Id:           1,
-			RespondingTo: &envelope.Id,
-			Payload: &pb.Envelope_AcceptTermsOfServiceResponse{
-				AcceptTermsOfServiceResponse: &pb.AcceptTermsOfServiceResponse{
-					AcceptedTosAt: 1,
-				},
-			},
-		}
-		b, err := proto.Marshal(&resp)
-		if err != nil {
-			logrus.Error(err)
-			return
-		}
-		conn.WriteMessage(websocket.BinaryMessage, zstdCompress(b))
-
-	case *pb.Envelope_GetNotifications:
-		// TODO: Implement
-		logrus.Infof("Received GetNotifications message: %v", msg)
-	default:
-		logrus.Infof("Received unmapped message: %v", msg)
-		logrus.Infof("Received WebSocket message: %v", string(message))
-		logrus.Infof("Received WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
-
-	}
-}
-
-func handleConnection(server *Server, principal *Principal, version Version, socketAddress string, countryCodeHeader string, systemIdHeader string) {
-	// TODO: Implement handling of WebSocket connections
-	logrus.Infof("New WebSocket connection from %s", socketAddress)
-}
-
-func parseAppVersion(appVersionHeader string) (Version, error) {
-	// TODO: Implement parsing of app version
-	logrus.Infof("Parsing app version from header: %s", appVersionHeader)
-	return Version{}, nil
+	rpc := RpcHandler{}
+	rpc.HandleRequest(c)
+	return
 }
