@@ -1,7 +1,9 @@
 package zed
 
 import (
+	"crypto/rand"
 	"encoding/base64"
+	"log"
 	"net/http"
 
 	"zedex/pb"
@@ -146,13 +148,21 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 	return nil
 }
 
+func (rpc *RpcHandler) generateWebSocketKey() string {
+	key := make([]byte, 16)
+	if _, err := rand.Read(key); err != nil {
+		log.Fatal("Failed to generate random key: ", err)
+	}
+	return base64.StdEncoding.EncodeToString(key)
+}
+
 func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 	upgrader := websocket.Upgrader{} // use default options
 	c.Request.Header.Add("Upgrade", "websocket")
 	c.Request.Header.Add("Connection", "upgrade")
 	c.Request.Header.Add("Sec-WebSocket-Protocol", "chat")
 	c.Request.Header.Add("Sec-WebSocket-Version", "13")
-	c.Request.Header.Add("Sec-WebSocket-Key", "h3DWLuXsI9/GkTo+sIjyzw==")
+	c.Request.Header.Add("Sec-WebSocket-Key", rpc.generateWebSocketKey())
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
