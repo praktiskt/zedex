@@ -310,7 +310,7 @@ func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
 			_, message, err := conn.ReadMessage()
 			if err != nil {
 				logrus.Errorf("failed to receive message: %v", err)
-				continue
+				return
 			}
 
 			handleWebSocketMessage(conn, message)
@@ -349,8 +349,6 @@ type Server struct{}
 type Principal struct{}
 
 func handleWebSocketMessage(conn *websocket.Conn, message []byte) {
-	// TODO: Implement handling of WebSocket messages
-
 	var envelope pb.Envelope
 	err := proto.Unmarshal(message, &envelope)
 	if err != nil {
@@ -364,17 +362,55 @@ func handleWebSocketMessage(conn *websocket.Conn, message []byte) {
 		logrus.Infof("Received get users message: %v", msg)
 		user := &pb.User{
 			Id:          1,
-			GithubLogin: "praktiskt",
-			AvatarUrl:   "https://avatars.githubusercontent.com/u/21065360?v=4",
+			GithubLogin: "anonymous",
+			AvatarUrl:   "",
 		}
-		*user.Email = "mafur90@gmail.com"
-		r := uint32(1)
 		resp := pb.Envelope{
 			Id:           2,
-			RespondingTo: &r,
+			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_UsersResponse{
 				UsersResponse: &pb.UsersResponse{
 					Users: []*pb.User{user},
+				},
+			},
+		}
+
+		b, err := proto.Marshal(&resp)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		conn.WriteMessage(websocket.BinaryMessage, zstdCompress(b))
+	case *pb.Envelope_GetPrivateUserInfo:
+		logrus.Infof("Received get private users message: %v", msg)
+		resp := pb.Envelope{
+			Id:               3,
+			RespondingTo:     &envelope.Id,
+			OriginalSenderId: &pb.PeerId{Id: 2},
+			Payload: &pb.Envelope_GetPrivateUserInfoResponse{
+				GetPrivateUserInfoResponse: &pb.GetPrivateUserInfoResponse{
+					MetricsId: "123",
+					Staff:     false,
+					Flags:     []string{},
+				},
+			},
+		}
+		b, err := proto.Marshal(&resp)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+
+		conn.WriteMessage(websocket.BinaryMessage, zstdCompress(b))
+
+	case *pb.Envelope_AcceptTermsOfService:
+		logrus.Infof("Received TOS message: %v", msg)
+		resp := pb.Envelope{
+			Id:           1,
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_AcceptTermsOfServiceResponse{
+				AcceptTermsOfServiceResponse: &pb.AcceptTermsOfServiceResponse{
+					AcceptedTosAt: 1,
 				},
 			},
 		}
@@ -384,10 +420,10 @@ func handleWebSocketMessage(conn *websocket.Conn, message []byte) {
 			return
 		}
 		conn.WriteMessage(websocket.BinaryMessage, zstdCompress(b))
-	case *pb.Envelope_GetPrivateUserInfo:
-		logrus.Infof("Received get private users message: %v", msg)
-	case *pb.Envelope_UsersResponse:
-		logrus.Infof("Received users response message: %v", msg)
+
+	case *pb.Envelope_GetNotifications:
+		// TODO: Implement
+		logrus.Infof("Received GetNotifications message: %v", msg)
 	default:
 		logrus.Infof("Received unmapped message: %v", msg)
 		logrus.Infof("Received WebSocket message: %v", string(message))
