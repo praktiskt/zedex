@@ -38,6 +38,13 @@ func (api *API) Router() *gin.Engine {
 		// Redirect to zed.host if not /api/releases
 		c.Redirect(301, controller.zed.host+c.Request.URL.RequestURI())
 	})
+	router.GET("/native_app_signin", controller.NativeAppSignin)
+	router.GET("/native_app_signin_succeeded", controller.NativeAppSigninSucceeded)
+	router.GET("/rpc", controller.HandleRpcRequest)
+	router.GET("/handle-rpc", controller.HandleWebSocketRequest)
+	router.GET("/favicon.ico", func(c *gin.Context) {
+		c.String(200, "plain/text", "")
+	})
 
 	return router
 }
