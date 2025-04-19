@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/klauspost/compress/zstd"
 	"github.com/sirupsen/logrus"
 )
 
@@ -245,15 +244,6 @@ func (co *Controller) HandleRpcRequest(c *gin.Context) {
 	c.Redirect(301, "http://localhost:8080/some-url")
 }
 
-func zstdCompress(b []byte) []byte {
-	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel((4)))
-	if err != nil {
-		panic(err)
-	}
-	compressedBytes := encoder.EncodeAll(b, make([]byte, 0, len(b)))
-	return compressedBytes
-}
-
 // https://github.com/zed-industries/zed/blob/1e22faebc9f9c8da685a34b15c17f2bc2b418b26/crates/collab/src/rpc.rs#L1092
 func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
 	protocolVersion := c.GetHeader("Protocol-Version")
@@ -278,5 +268,4 @@ func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
 
 	rpc := RpcHandler{}
 	rpc.HandleRequest(c)
-	return
 }
