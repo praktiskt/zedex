@@ -63,7 +63,7 @@ func (rpc *RpcHandler) SendHello() error {
 	return rpc.SendProtobuf(&envelope)
 }
 
-func (rpc *RpcHandler) HandleMessages() {
+func (rpc *RpcHandler) handleMessages() {
 	for {
 		_, message, err := rpc.websocket.ReadMessage()
 		if err != nil {
@@ -173,7 +173,7 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 	}
 	rpc.websocket = conn
 	rpc.websocket.SetReadLimit(WEBSOCKET_READ_LIMIT)
-	go rpc.HandleMessages()
+	go rpc.handleMessages()
 	if err := rpc.SendHello(); err != nil {
 		logrus.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
