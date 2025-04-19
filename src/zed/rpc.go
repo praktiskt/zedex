@@ -18,6 +18,7 @@ import (
 
 const (
 	ZSTD_COMPRESSION_LEVEL = 4
+	WEBSOCKET_READ_LIMIT   = 1024 * 1024
 )
 
 type RpcHandler struct {
@@ -171,7 +172,7 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 	rpc.websocket = conn
-	rpc.websocket.SetReadLimit(1024 * 1024)
+	rpc.websocket.SetReadLimit(WEBSOCKET_READ_LIMIT)
 	go rpc.HandleMessages()
 	if err := rpc.SendHello(); err != nil {
 		logrus.Error(err)
