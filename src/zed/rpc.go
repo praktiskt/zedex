@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"zedex/pb"
+	"zedex/zed/pb"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
