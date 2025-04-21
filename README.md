@@ -9,6 +9,8 @@ Self-hosted Zed extension API. Useful for the few who want control over what get
 * Serve the downloaded extension index and downloaded extensions
 * List the latest version of Zed, and store a reference to it (version+url), and its release notes
 * Log in anonymously.
+* Use any OpenAI-compatible backend for edit prediction
+  * Note: It works, kind of, but needs more work.
 * (Be a transparent Zed proxy, to see what calls Zed makes)
 
 ## Usage
