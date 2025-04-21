@@ -93,7 +93,6 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 			AvatarUrl:   "",
 		}
 		resp := pb.Envelope{
-			Id:           2,
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_UsersResponse{
 				UsersResponse: &pb.UsersResponse{
@@ -107,15 +106,16 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 
 	case *pb.Envelope_GetPrivateUserInfo:
 		logrus.Infof("Received get private users message: %v", msg)
+		acceptTos := uint64(1)
 		resp := pb.Envelope{
-			Id:               3,
 			RespondingTo:     &envelope.Id,
 			OriginalSenderId: &pb.PeerId{Id: 2},
 			Payload: &pb.Envelope_GetPrivateUserInfoResponse{
 				GetPrivateUserInfoResponse: &pb.GetPrivateUserInfoResponse{
-					MetricsId: "123",
-					Staff:     false,
-					Flags:     []string{},
+					MetricsId:     "123",
+					Staff:         false,
+					Flags:         []string{},
+					AcceptedTosAt: &acceptTos,
 				},
 			},
 		}
@@ -126,12 +126,9 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 	case *pb.Envelope_AcceptTermsOfService:
 		logrus.Infof("Received TOS message: %v", msg)
 		resp := pb.Envelope{
-			Id:           1,
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_AcceptTermsOfServiceResponse{
-				AcceptTermsOfServiceResponse: &pb.AcceptTermsOfServiceResponse{
-					AcceptedTosAt: 1,
-				},
+				AcceptTermsOfServiceResponse: &pb.AcceptTermsOfServiceResponse{},
 			},
 		}
 		if err := rpc.SendProtobuf(&resp); err != nil {
@@ -141,6 +138,21 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 	case *pb.Envelope_GetNotifications:
 		// TODO: Implement
 		logrus.Infof("Received GetNotifications message: %v", msg)
+
+	case *pb.Envelope_GetLlmToken:
+		resp := pb.Envelope{
+			Id:           1,
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_GetLlmTokenResponse{
+				GetLlmTokenResponse: &pb.GetLlmTokenResponse{
+					Token: "abc123",
+				},
+			},
+		}
+		if err := rpc.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
 	default:
 		logrus.Infof("Received unmapped message: %v", msg)
 		logrus.Infof("Received WebSocket message: %v", string(message))
