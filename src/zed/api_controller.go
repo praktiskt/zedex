@@ -6,14 +6,19 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
 
+	"zedex/llm"
+
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -268,4 +273,54 @@ func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
 
 	rpc := RpcHandler{}
 	rpc.HandleRequest(c)
+}
+
+func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
+	autoComplete := struct {
+		RequestId     string `json:"request_id"`
+		OutputExcerpt string `json:"output_excerpt"`
+	}{
+		RequestId: uuid.New().String(),
+	}
+
+	if _, ok := os.LookupEnv("OPENAI_COMPATIBLE_DISABLE"); ok {
+		c.JSON(200, autoComplete)
+	}
+
+	b, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+
+	incoming := struct {
+		SpeculatedOutput string `json:"speculated_output"`
+	}{}
+	if err := json.Unmarshal(b, &incoming); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	if _, ok := os.LookupEnv("OPENAI_COMPATIBLE_SYSTEM_PROMPT"); !ok {
+		// TODO: remove this garbage.
+		os.Setenv("OPENAI_COMPATIBLE_SYSTEM_PROMPT", `You are an autocomplete engine.
+
+RULES:
+* Only respond with code (nothing else).
+* Never include code blocks (triple backticks) in your response.
+* YOU MUST INCLUDE ALL PLACEHOLDERS "<|editable_region_start|>" AND "<|editable_region_end|>" IN YOUR RESPONSE.
+* YOU MAY ALTER ALL CODE CONTAINED WITHIN "<|editable_region_start|>" AND "<|editable_region_end|>".
+* Always respond with the complete input, but also auto-complete with code AFTER the placeholder <|user_cursor_is_here|>
+* If autocompleting a class/struct, only complete that class/struct - do not create new classes/structs.
+* If autocompleting a function, only complete that function - do not create new functions.
+* If autocompleting a variable, only complete that variable - do not create new variables.`)
+	}
+
+	resp, err := llm.GetOpenAICompatibleResponse(incoming.SpeculatedOutput)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	autoComplete.OutputExcerpt = `<|start_of_file|>` + resp.GetLastResponse()
+	c.JSON(200, autoComplete)
 }
