@@ -309,6 +309,5 @@ func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
 
 	prefix := utils.IfElse(strings.HasPrefix(resp.GetLastResponse(), "<|start_of_file|>"), "", "<|start_of_file|>")
 	autoComplete.OutputExcerpt = prefix + resp.GetLastResponse()
-	logrus.Info(autoComplete.OutputExcerpt)
 	c.JSON(200, autoComplete)
 }
