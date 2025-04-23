@@ -9,12 +9,14 @@ import (
 type API struct {
 	localMode bool
 	zedClient Client
+	port      int
 }
 
-func NewAPI(localMode bool, zedClient Client) API {
+func NewAPI(localMode bool, zedClient Client, port int) API {
 	return API{
 		zedClient: zedClient,
 		localMode: localMode,
+		port:      port,
 	}
 }
 
@@ -40,7 +42,9 @@ func (api *API) Router() *gin.Engine {
 	})
 	router.GET("/native_app_signin", controller.NativeAppSignin)
 	router.GET("/native_app_signin_succeeded", controller.NativeAppSigninSucceeded)
-	router.GET("/rpc", controller.HandleRpcRequest)
+	router.GET("/rpc", func(c *gin.Context) {
+		controller.HandleRpcRequest(api.port, c)
+	})
 	router.GET("/handle-rpc", controller.HandleWebSocketRequest)
 	router.GET("/favicon.ico", func(c *gin.Context) {
 		c.String(200, "plain/text", "")
