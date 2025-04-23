@@ -225,7 +225,7 @@ func (co *Controller) NativeAppSignin(c *gin.Context) {
 
 	// user_id must be numeric, possibly a reference to github id
 	// https://api.github.com/users/<user>
-	host := fmt.Sprintf("http://0.0.0.0:%s/native_app_signin?user_id=1&access_token=%s", portStr, enc)
+	host := fmt.Sprintf("http://127.0.0.1:%s/native_app_signin?user_id=1&access_token=%s", portStr, enc)
 	c.Redirect(302, host)
 }
 
@@ -242,7 +242,7 @@ func (co *Controller) NativeAppSigninSucceeded(c *gin.Context) {
 }
 
 func (co *Controller) HandleRpcRequest(port int, c *gin.Context) {
-	host := fmt.Sprintf("http://0.0.0.0:%v/handle-rpc", port)
+	host := fmt.Sprintf("http://127.0.0.1:%v/handle-rpc", port)
 	c.Redirect(301, host)
 }
 
