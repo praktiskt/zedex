@@ -209,28 +209,8 @@ func (co *Controller) NativeAppSignin(c *gin.Context) {
 
 	// user_id must be numeric, possibly a reference to github id
 	// https://api.github.com/users/<user>
-	host := fmt.Sprintf("http://localhost:%s/native_app_signin?user_id=1&access_token=%s", portStr, enc)
-	logrus.Infof("sending request to %s", host)
-	resp, err := http.Get(host)
-	if err != nil {
-		c.JSON(500, gin.H{
-			"error":   "Internal Server Error",
-			"message": err.Error(),
-		})
-		return
-	}
-
-	defer resp.Body.Close()
-	b, err := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		c.JSON(500, gin.H{
-			"error":   "Internal Server Error",
-			"message": "Failed to get native app signin: " + string(b),
-		})
-		return
-	}
-
-	c.Redirect(302, "/native_app_signin_succeeded")
+	host := fmt.Sprintf("http://0.0.0.0:%s/native_app_signin?user_id=1&access_token=%s", portStr, enc)
+	c.Redirect(302, host)
 }
 
 func (co *Controller) NativeAppSigninSucceeded(c *gin.Context) {
@@ -246,7 +226,7 @@ func (co *Controller) NativeAppSigninSucceeded(c *gin.Context) {
 }
 
 func (co *Controller) HandleRpcRequest(c *gin.Context) {
-	c.Redirect(301, "http://localhost:8080/handle-rpc")
+	c.Redirect(301, "http://0.0.0.0:8080/handle-rpc")
 }
 
 // https://github.com/zed-industries/zed/blob/1e22faebc9f9c8da685a34b15c17f2bc2b418b26/crates/collab/src/rpc.rs#L1092
