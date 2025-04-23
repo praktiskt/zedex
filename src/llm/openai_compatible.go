@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-
-	"zedex/utils"
 )
 
 type OpenAIHost struct {
@@ -75,14 +73,13 @@ func (o *OpenAIResponse) GetLastResponse() string {
 }
 
 func (c *OpenAIHost) Chat(question string) (*OpenAIResponse, error) {
-	host := utils.EnvWithFallback("OPENAI_COMPATIBLE_ENDPOINT", "https://api.groq.com/openai/v1/chat/completions")
-	req, err := http.NewRequest("POST", host, nil)
+	req, err := http.NewRequest("POST", c.Host, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	auth, ok := os.LookupEnv("OPENAI_COMPATIBLE_API_KEY")
-	if !ok {
+	auth, err := c.GetKey()
+	if err != nil {
 		return nil, fmt.Errorf("OPENAI_COMPATIBLE_API_KEY not set")
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", auth))
@@ -93,14 +90,14 @@ func (c *OpenAIHost) Chat(question string) (*OpenAIResponse, error) {
 		"messages": []map[string]string{
 			{
 				"role":    "system",
-				"content": utils.EnvWithFallback("OPENAI_COMPATIBLE_SYSTEM_PROMPT", "You are a helpful assistant"),
+				"content": c.SystemPrompt,
 			},
 			{
 				"role":    "user",
 				"content": question,
 			},
 		},
-		"model":       utils.EnvWithFallback("OPENAI_COMPATIBLE_MODEL", "llama-3.3-70b-versatile"),
+		"model":       c.Model,
 		"temperature": 0.1,
 	}
 	jsonPostData, err := json.Marshal(postData)

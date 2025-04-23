@@ -40,17 +40,13 @@ func NewController(localMode bool, zedClient Client) Controller {
 		).
 			WithModel(utils.EnvWithFallback("OPENAI_COMPATIBLE_MODEL", "llama-3.3-70b-versatile")).
 			WithTemperature(0.1). // TODO: Use env.
-			WithSystemPrompt(utils.EnvWithFallback("OPENAI_COMPATIBLE_SYSTEM_PROMPT", `You are an autocomplete engine.
+			WithSystemPrompt(utils.EnvWithFallback("OPENAI_COMPATIBLE_SYSTEM_PROMPT", `You are a code autocomplete engine.
 
 RULES:
 * Only respond with code (nothing else).
-* Never include code blocks (triple backticks) in your response.
 * YOU MUST INCLUDE ALL PLACEHOLDERS "<|editable_region_start|>" AND "<|editable_region_end|>" IN YOUR RESPONSE.
 * YOU MAY ALTER ALL CODE CONTAINED WITHIN "<|editable_region_start|>" AND "<|editable_region_end|>".
-* Always respond with the complete input, but also auto-complete with code AFTER the placeholder <|user_cursor_is_here|>
-* If autocompleting a class/struct, only complete that class/struct - do not create new classes/structs.
-* If autocompleting a function, only complete that function - do not create new functions.
-* If autocompleting a variable, only complete that variable - do not create new variables.`)),
+* ALWAYS AUTO COMPLETE AS LITTLE AS POSSIBLE`)),
 	}
 }
 
