@@ -7,7 +7,15 @@ import (
 )
 
 func TestGroq(t *testing.T) {
-	response, err := GetOpenAICompatibleResponse("What is 1+1? Answer only with the result and nothing else.")
+	groq := NewOpenAIHost(
+		"https://api.groq.com/openai/v1/chat/completions",
+		"GROQ_API_KEY",
+	).
+		WithModel("llama-3.3-70b-versatile").
+		WithTemperature(0.1).
+		WithSystemPrompt("You are a helpful assistant")
+
+	response, err := groq.Chat("What is 1+1? Answer only with the result and nothing else.")
 	if err != nil {
 		t.Error(err)
 		return

@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"zedex/llm"
+	"zedex/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -25,12 +26,27 @@ import (
 type Controller struct {
 	zed       Client
 	localMode bool
+	llm       *llm.OpenAIHost
 }
 
 func NewController(localMode bool, zedClient Client) Controller {
+	_, envExists := os.LookupEnv("OPENAI_COMPATIBLE_API_KEY")
 	return Controller{
 		zed:       zedClient,
 		localMode: localMode,
+		llm: llm.NewOpenAIHost(
+			utils.EnvWithFallback("OPENAI_COMPATIBLE_HOST", "https://api.groq.com/openai/v1/chat/completions"),
+			utils.IfElse(envExists, "OPENAI_COMPATIBLE_API_KEY", "GROQ_API_KEY"),
+		).
+			WithModel(utils.EnvWithFallback("OPENAI_COMPATIBLE_MODEL", "llama-3.3-70b-versatile")).
+			WithTemperature(0.1). // TODO: Use env.
+			WithSystemPrompt(utils.EnvWithFallback("OPENAI_COMPATIBLE_SYSTEM_PROMPT", `You are a code autocomplete engine.
+
+RULES:
+* Only respond with code (nothing else).
+* YOU MUST INCLUDE ALL PLACEHOLDERS "<|editable_region_start|>" AND "<|editable_region_end|>" IN YOUR RESPONSE.
+* YOU MAY ALTER ALL CODE CONTAINED WITHIN "<|editable_region_start|>" AND "<|editable_region_end|>".
+* ALWAYS AUTO COMPLETE AS LITTLE AS POSSIBLE`)),
 	}
 }
 
@@ -271,6 +287,7 @@ func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
 	b, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		logrus.Error(err)
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -278,30 +295,20 @@ func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
 		SpeculatedOutput string `json:"speculated_output"`
 	}{}
 	if err := json.Unmarshal(b, &incoming); err != nil {
+		logrus.Error(err)
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	if _, ok := os.LookupEnv("OPENAI_COMPATIBLE_SYSTEM_PROMPT"); !ok {
-		// TODO: remove this garbage.
-		os.Setenv("OPENAI_COMPATIBLE_SYSTEM_PROMPT", `You are an autocomplete engine.
 
-RULES:
-* Only respond with code (nothing else).
-* Never include code blocks (triple backticks) in your response.
-* YOU MUST INCLUDE ALL PLACEHOLDERS "<|editable_region_start|>" AND "<|editable_region_end|>" IN YOUR RESPONSE.
-* YOU MAY ALTER ALL CODE CONTAINED WITHIN "<|editable_region_start|>" AND "<|editable_region_end|>".
-* Always respond with the complete input, but also auto-complete with code AFTER the placeholder <|user_cursor_is_here|>
-* If autocompleting a class/struct, only complete that class/struct - do not create new classes/structs.
-* If autocompleting a function, only complete that function - do not create new functions.
-* If autocompleting a variable, only complete that variable - do not create new variables.`)
-	}
-
-	resp, err := llm.GetOpenAICompatibleResponse(incoming.SpeculatedOutput)
+	resp, err := co.llm.Chat(incoming.SpeculatedOutput)
 	if err != nil {
+		logrus.Error(err)
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	autoComplete.OutputExcerpt = `<|start_of_file|>` + resp.GetLastResponse()
+	prefix := utils.IfElse(strings.HasPrefix(resp.GetLastResponse(), "<|start_of_file|>"), "", "<|start_of_file|>")
+	autoComplete.OutputExcerpt = prefix + resp.GetLastResponse()
+	logrus.Info(autoComplete.OutputExcerpt)
 	c.JSON(200, autoComplete)
 }
