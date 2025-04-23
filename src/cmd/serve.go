@@ -20,7 +20,7 @@ var serveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		zc := zed.NewZedClient(1)
 		zc.WithExtensionsLocalDir(serveCmdConfig.outputDir)
-		api := zed.NewAPI(serveCmdConfig.localMode, zc)
+		api := zed.NewAPI(serveCmdConfig.localMode, zc, serveCmdConfig.port)
 
 		log.Infof("serving on %v", serveCmdConfig.port)
 		api.Router().Run(fmt.Sprintf(":%v", serveCmdConfig.port))
