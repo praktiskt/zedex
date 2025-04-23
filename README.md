@@ -1,6 +1,6 @@
 # zedex
 
-Self-hosted Zed extension API. Useful for the few who want control over what gets installed.
+Self-hosted Zed server.
 
 `zedex` can currently;
 * Download the extension index
