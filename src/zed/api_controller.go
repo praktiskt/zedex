@@ -242,8 +242,9 @@ func (co *Controller) NativeAppSigninSucceeded(c *gin.Context) {
 }
 
 func (co *Controller) HandleRpcRequest(port int, c *gin.Context) {
-	host := fmt.Sprintf("http://127.0.0.1:%v/handle-rpc", port)
-	c.Redirect(301, host)
+	baseURL := utils.EnvWithFallback("BASE_URL", fmt.Sprintf("http://127.0.0.1:%v", port))
+	location := fmt.Sprintf("%s/handle-rpc", baseURL)
+	c.Redirect(301, location)
 }
 
 // https://github.com/zed-industries/zed/blob/1e22faebc9f9c8da685a34b15c17f2bc2b418b26/crates/collab/src/rpc.rs#L1092
