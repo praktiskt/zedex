@@ -25,17 +25,20 @@ type RpcHandler struct {
 	websocket *websocket.Conn
 }
 
-func (rpc *RpcHandler) CompressMsg(b []byte) []byte {
+func (rpc *RpcHandler) CompressMsg(b []byte) ([]byte, error) {
 	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel((ZSTD_COMPRESSION_LEVEL)))
 	if err != nil {
-		panic(err) // TODO
+		return []byte{}, err
 	}
-	return encoder.EncodeAll(b, make([]byte, 0, len(b)))
+	return encoder.EncodeAll(b, make([]byte, 0, len(b))), nil
 }
 
 func (rpc *RpcHandler) SendMessage(b []byte) error {
-	b = rpc.CompressMsg(b)
-	if err := rpc.websocket.WriteMessage(websocket.BinaryMessage, b); err != nil {
+	bb, err := rpc.CompressMsg(b)
+	if err != nil {
+		return err
+	}
+	if err := rpc.websocket.WriteMessage(websocket.BinaryMessage, bb); err != nil {
 		return err
 	}
 	return nil
@@ -113,8 +116,8 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 			Payload: &pb.Envelope_GetPrivateUserInfoResponse{
 				GetPrivateUserInfoResponse: &pb.GetPrivateUserInfoResponse{
 					MetricsId:     "123",
-					Staff:         false,
-					Flags:         []string{},
+					Staff:         true,
+					Flags:         []string{"assistant2", "zed-pro", "notebooks", "debugger", "llm-closed-beta"},
 					AcceptedTosAt: &acceptTos,
 				},
 			},
@@ -141,7 +144,6 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 
 	case *pb.Envelope_GetLlmToken:
 		resp := pb.Envelope{
-			Id:           1,
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_GetLlmTokenResponse{
 				GetLlmTokenResponse: &pb.GetLlmTokenResponse{
