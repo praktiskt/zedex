@@ -281,8 +281,9 @@ func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
 		RequestId: uuid.New().String(),
 	}
 
-	if _, ok := os.LookupEnv("OPENAI_COMPATIBLE_DISABLE"); ok {
+	if v, ok := os.LookupEnv("OPENAI_COMPATIBLE_DISABLE"); ok || v != "" {
 		c.JSON(200, autoComplete)
+		return
 	}
 
 	b, err := io.ReadAll(c.Request.Body)
