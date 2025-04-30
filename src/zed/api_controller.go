@@ -6,9 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path"
@@ -288,17 +286,10 @@ func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
 		return
 	}
 
-	b, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		logrus.Error(err)
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
 	incoming := struct {
 		SpeculatedOutput string `json:"speculated_output"`
 	}{}
-	if err := json.Unmarshal(b, &incoming); err != nil {
+	if err := c.ShouldBindJSON(&incoming); err != nil {
 		logrus.Error(err)
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
