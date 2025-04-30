@@ -22,7 +22,7 @@ func NewAPI(localMode bool, zedClient Client, port int) API {
 
 func (api *API) Router() *gin.Engine {
 	router := gin.Default()
-	controller := NewController(api.localMode, api.zedClient)
+	controller := NewController(api.localMode, api.zedClient, api.port)
 	router.GET("/extensions", controller.Extensions)
 	router.GET("/extensions/:id/download", controller.DownloadExtension)
 	router.GET("/extensions/:id/:version/download", controller.DownloadExtension)
@@ -42,9 +42,7 @@ func (api *API) Router() *gin.Engine {
 	})
 	router.GET("/native_app_signin", controller.NativeAppSignin)
 	router.GET("/native_app_signin_succeeded", controller.NativeAppSigninSucceeded)
-	router.GET("/rpc", func(c *gin.Context) {
-		controller.HandleRpcRequest(api.port, c)
-	})
+	router.GET("/rpc", controller.HandleRpcRequest)
 	router.GET("/handle-rpc", controller.HandleWebSocketRequest)
 	router.GET("/favicon.ico", func(c *gin.Context) {
 		c.String(200, "plain/text", "")

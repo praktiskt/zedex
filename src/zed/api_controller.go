@@ -27,13 +27,15 @@ type Controller struct {
 	zed       Client
 	localMode bool
 	llm       *llm.OpenAIHost
+	port      int
 }
 
-func NewController(localMode bool, zedClient Client) Controller {
+func NewController(localMode bool, zedClient Client, port int) Controller {
 	_, envExists := os.LookupEnv("OPENAI_COMPATIBLE_API_KEY")
 	return Controller{
 		zed:       zedClient,
 		localMode: localMode,
+		port:      port,
 		llm: llm.NewOpenAIHost(
 			utils.EnvWithFallback("OPENAI_COMPATIBLE_HOST", "https://api.groq.com/openai/v1/chat/completions"),
 			utils.IfElse(envExists, "OPENAI_COMPATIBLE_API_KEY", "GROQ_API_KEY"),
@@ -241,8 +243,8 @@ func (co *Controller) NativeAppSigninSucceeded(c *gin.Context) {
 	)
 }
 
-func (co *Controller) HandleRpcRequest(port int, c *gin.Context) {
-	baseURL := utils.EnvWithFallback("BASE_URL", fmt.Sprintf("http://127.0.0.1:%v", port))
+func (co *Controller) HandleRpcRequest(c *gin.Context) {
+	baseURL := utils.EnvWithFallback("BASE_URL", fmt.Sprintf("http://127.0.0.1:%v", co.port))
 	location := fmt.Sprintf("%s/handle-rpc", baseURL)
 	c.Redirect(301, location)
 }
