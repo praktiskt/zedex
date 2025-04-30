@@ -16,7 +16,6 @@ import (
 	"zedex/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -253,35 +252,20 @@ func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
 }
 
 func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
-	autoComplete := struct {
-		RequestId     string `json:"request_id"`
-		OutputExcerpt string `json:"output_excerpt"`
-	}{
-		RequestId: uuid.New().String(),
-	}
-
-	if v, ok := os.LookupEnv("OPENAI_COMPATIBLE_DISABLE"); ok || v != "" {
-		c.JSON(200, autoComplete)
-		return
-	}
-
-	incoming := struct {
-		SpeculatedOutput string `json:"speculated_output"`
-	}{}
-	if err := c.ShouldBindJSON(&incoming); err != nil {
+	ecp := NewEditPredictClient(*co.llm)
+	epr := EditPredictRequest{}
+	if err := c.ShouldBindJSON(&epr); err != nil {
 		logrus.Error(err)
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	resp, err := co.llm.Chat(incoming.SpeculatedOutput)
+	resp, err := ecp.HandleRequest(epr)
 	if err != nil {
 		logrus.Error(err)
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	prefix := utils.IfElse(strings.HasPrefix(resp.GetLastResponse(), "<|start_of_file|>"), "", "<|start_of_file|>")
-	autoComplete.OutputExcerpt = prefix + resp.GetLastResponse()
-	c.JSON(200, autoComplete)
+	c.JSON(200, resp)
 }

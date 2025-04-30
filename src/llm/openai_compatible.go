@@ -73,6 +73,10 @@ func (o *OpenAIResponse) GetLastResponse() string {
 }
 
 func (c *OpenAIHost) Chat(question string) (*OpenAIResponse, error) {
+	if v, ok := os.LookupEnv("OPENAI_COMPATIBLE_DISABLE"); ok || v != "" {
+		return nil, nil
+	}
+
 	req, err := http.NewRequest("POST", c.Host, nil)
 	if err != nil {
 		return nil, err
