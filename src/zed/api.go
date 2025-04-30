@@ -7,16 +7,26 @@ import (
 )
 
 type API struct {
-	localMode bool
-	zedClient Client
-	port      int
+	localMode            bool
+	hijackExtensionStore bool
+	hijackLogin          bool
+	hijackEditPrediction bool
+	hijackReleases       bool
+	hijackReleaseNotes   bool
+	zedClient            Client
+	port                 int
 }
 
 func NewAPI(localMode bool, zedClient Client, port int) API {
 	return API{
-		zedClient: zedClient,
-		localMode: localMode,
-		port:      port,
+		zedClient:            zedClient,
+		localMode:            localMode,
+		port:                 port,
+		hijackExtensionStore: false,
+		hijackLogin:          false,
+		hijackEditPrediction: false,
+		hijackReleases:       false,
+		hijackReleaseNotes:   false,
 	}
 }
 
