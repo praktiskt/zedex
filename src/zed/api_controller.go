@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -249,26 +248,6 @@ func (co *Controller) HandleRpcRequest(c *gin.Context) {
 
 // https://github.com/zed-industries/zed/blob/1e22faebc9f9c8da685a34b15c17f2bc2b418b26/crates/collab/src/rpc.rs#L1092
 func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
-	protocolVersion := c.GetHeader("Protocol-Version")
-	logrus.Info("protocolVersion", protocolVersion)
-	if protocolVersion != "" {
-		c.JSON(http.StatusUpgradeRequired, gin.H{"error": "client must be upgraded"})
-		return
-	}
-
-	appVersionHeader := c.GetHeader("App-Version")
-	logrus.Info("appVersionHeader:", appVersionHeader)
-	if appVersionHeader != "" {
-		c.JSON(http.StatusUpgradeRequired, gin.H{"error": "no version header found"})
-		return
-	}
-
-	// TODO
-	if false { // !version.CanCollaborate() {
-		c.JSON(http.StatusUpgradeRequired, gin.H{"error": "client must be upgraded"})
-		return
-	}
-
 	rpc := RpcHandler{}
 	rpc.HandleRequest(c)
 }
