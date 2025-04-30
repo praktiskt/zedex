@@ -6,7 +6,6 @@ import (
 	"zedex/llm"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -35,7 +34,6 @@ func NewEditPredictClient(openAIHost llm.OpenAIHost) EditPredictClient {
 }
 
 func (c *EditPredictClient) HandleRequest(req EditPredictRequest) (EditPredictResponse, error) {
-	logrus.Info(req.SpeculatedOutput)
 	txt := extractEditableRegion(req.SpeculatedOutput)
 	resp, err := c.OpenAIHost.Chat(txt)
 	if err != nil || resp == nil {
@@ -44,7 +42,6 @@ func (c *EditPredictClient) HandleRequest(req EditPredictRequest) (EditPredictRe
 
 	predicted := extractEditableRegion(resp.GetLastResponse())
 	response := replaceEditableRegion(req.SpeculatedOutput, predicted)
-	logrus.Info(response)
 	return EditPredictResponse{
 		RequestId:     uuid.New().String(),
 		OutputExcerpt: response,
