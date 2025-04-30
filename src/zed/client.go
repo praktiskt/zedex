@@ -80,7 +80,7 @@ func (c *Client) LoadExtensionIndex(indexFile string) (Extensions, error) {
 //	Extensions: A list of extensions that match the provided schema version.
 //	error: Any error that occurs during the retrieval process.
 func (c *Client) GetExtensionsIndex() (Extensions, error) {
-	u := fmt.Sprintf("%s/extensions?max_schema_version=%d", c.apiHost, c.maxSchemaVersion)
+	u := fmt.Sprintf("%s/extensions?max_schema_version=%d&include_native=true", c.apiHost, c.maxSchemaVersion)
 	if _, err := url.Parse(u); err != nil {
 		return Extensions{}, err
 	}
