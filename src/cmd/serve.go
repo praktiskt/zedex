@@ -23,6 +23,13 @@ var serveCmd = &cobra.Command{
 	Use:  "serve",
 	Args: cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
+		if !serveCmdConfig.enableLogin {
+			log.Fatalf("zedex does not support login forwarding yet")
+		}
+		if !serveCmdConfig.enableEditPrediction {
+			log.Fatalf("zedex does not support edit prediction forwarding yet")
+		}
+
 		zc := zed.NewZedClient(1)
 		zc.WithExtensionsLocalDir(serveCmdConfig.outputDir)
 		api := zed.NewAPI(
