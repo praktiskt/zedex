@@ -19,6 +19,9 @@ type EditPredictClient struct {
 }
 
 type EditPredictRequest struct {
+	Outline          string `json:"outline"`
+	InputEvents      string `json:"input_events"`
+	InputExcerpt     string `json:"input_excerpt"`
 	SpeculatedOutput string `json:"speculated_output"`
 }
 
@@ -34,14 +37,14 @@ func NewEditPredictClient(openAIHost llm.OpenAIHost) EditPredictClient {
 }
 
 func (c *EditPredictClient) HandleRequest(req EditPredictRequest) (EditPredictResponse, error) {
-	txt := extractEditableRegion(req.SpeculatedOutput)
+	txt := extractEditableRegion(req.InputExcerpt)
 	resp, err := c.OpenAIHost.Chat(txt)
 	if err != nil || resp == nil {
 		return EditPredictResponse{}, err
 	}
 
 	predicted := extractEditableRegion(resp.GetLastResponse())
-	response := replaceEditableRegion(req.SpeculatedOutput, predicted)
+	response := replaceEditableRegion(req.InputExcerpt, predicted)
 	return EditPredictResponse{
 		RequestId:     uuid.New().String(),
 		OutputExcerpt: response,

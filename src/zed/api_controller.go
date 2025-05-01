@@ -36,7 +36,7 @@ func NewController(localMode bool, zedClient Client, port int) Controller {
 			utils.EnvWithFallback("OPENAI_COMPATIBLE_HOST", "https://api.groq.com/openai/v1/chat/completions"),
 			utils.IfElse(envExists, "OPENAI_COMPATIBLE_API_KEY", "GROQ_API_KEY"),
 		).
-			WithModel(utils.EnvWithFallback("OPENAI_COMPATIBLE_MODEL", "llama-3.3-70b-versatile")).
+			WithModel(utils.EnvWithFallback("OPENAI_COMPATIBLE_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct")).
 			WithTemperature(0.1). // TODO: Use env.
 			WithSystemPrompt(utils.EnvWithFallback("OPENAI_COMPATIBLE_SYSTEM_PROMPT", `You are a code autocomplete engine.
 
