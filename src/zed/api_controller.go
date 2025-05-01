@@ -20,18 +20,34 @@ import (
 )
 
 type Controller struct {
-	zed       Client
-	localMode bool
-	llm       *llm.OpenAIHost
-	port      int
+	zed                  Client
+	llm                  *llm.OpenAIHost
+	port                 int
+	enableExtensionStore bool
+	enableLogin          bool
+	enableEditPrediction bool
+	enableReleases       bool
+	enableReleaseNotes   bool
 }
 
-func NewController(localMode bool, zedClient Client, port int) Controller {
+func NewController(
+	enableExtensionStore bool,
+	enableLogin bool,
+	enableEditPrediction bool,
+	enableReleases bool,
+	enableReleaseNotes bool,
+	zedClient Client,
+	port int,
+) Controller {
 	_, envExists := os.LookupEnv("OPENAI_COMPATIBLE_API_KEY")
 	return Controller{
-		zed:       zedClient,
-		localMode: localMode,
-		port:      port,
+		zed:                  zedClient,
+		enableExtensionStore: enableExtensionStore,
+		enableLogin:          enableLogin,
+		enableEditPrediction: enableEditPrediction,
+		enableReleases:       enableReleases,
+		enableReleaseNotes:   enableReleaseNotes,
+		port:                 port,
 		llm: llm.NewOpenAIHost(
 			utils.EnvWithFallback("OPENAI_COMPATIBLE_HOST", "https://api.groq.com/openai/v1/chat/completions"),
 			utils.IfElse(envExists, "OPENAI_COMPATIBLE_API_KEY", "GROQ_API_KEY"),
@@ -52,7 +68,7 @@ func (co *Controller) Extensions(c *gin.Context) {
 	var extensions Extensions
 	var err error
 
-	if co.localMode {
+	if co.enableExtensionStore {
 		extensionsFile := path.Join(co.zed.extensionsLocalDir, "extensions.json")
 		extensions, err = co.zed.LoadExtensionIndex(extensionsFile)
 	} else {
@@ -60,6 +76,7 @@ func (co *Controller) Extensions(c *gin.Context) {
 	}
 
 	if err != nil {
+		logrus.Error(err)
 		c.JSON(500, gin.H{
 			"error":   "Internal Server Error",
 			"message": err.Error(),
@@ -70,6 +87,7 @@ func (co *Controller) Extensions(c *gin.Context) {
 	maxSchemaVersion := c.DefaultQuery("max_schema_version", "100")
 	maxSchemaVersionInt, err := strconv.Atoi(maxSchemaVersion)
 	if err != nil {
+		logrus.Error(err)
 		c.JSON(400, gin.H{
 			"error":   "Bad Request",
 			"message": "max_schema_version must be an integer",
@@ -115,13 +133,14 @@ func (co *Controller) DownloadExtension(c *gin.Context) {
 	var bytes []byte
 	var err error
 
-	if co.localMode {
+	if co.enableExtensionStore {
 		bytes, err = co.zed.LoadExtensionArchive(extension)
 	} else {
 		bytes, err = co.zed.DownloadExtensionArchiveDefault(extension)
 	}
 
 	if err != nil {
+		logrus.Error(err)
 		c.JSON(500, gin.H{
 			"error":   "Internal Server Error",
 			"message": err.Error(),
@@ -135,7 +154,7 @@ func (co *Controller) DownloadExtension(c *gin.Context) {
 func (co *Controller) LatestVersion(c *gin.Context) {
 	var v Version
 	var err error
-	if co.localMode {
+	if co.enableReleases {
 		versionFile := path.Join(co.zed.extensionsLocalDir, "latest_release.json")
 		v, err = co.zed.LoadLatestZedVersionFromFile(versionFile)
 	} else {
@@ -143,6 +162,7 @@ func (co *Controller) LatestVersion(c *gin.Context) {
 	}
 
 	if err != nil {
+		logrus.Error(err)
 		c.JSON(500, gin.H{
 			"error":   "Internal Server Error",
 			"message": err.Error(),
@@ -156,7 +176,7 @@ func (co *Controller) LatestVersion(c *gin.Context) {
 func (co *Controller) LatestReleaseNotes(c *gin.Context) {
 	var v ReleaseNotes
 	var err error
-	if co.localMode {
+	if co.enableReleaseNotes {
 		versionFile := path.Join(co.zed.extensionsLocalDir, "latest_release_notes.json")
 		v, err = co.zed.LoadReleaseNotes(versionFile)
 	} else {
@@ -164,6 +184,7 @@ func (co *Controller) LatestReleaseNotes(c *gin.Context) {
 	}
 
 	if err != nil {
+		logrus.Error(err)
 		c.JSON(500, gin.H{
 			"error":   "Internal Server Error",
 			"message": err.Error(),
@@ -214,6 +235,7 @@ func (co *Controller) NativeAppSignin(c *gin.Context) {
 	// TODO: Figure out if its V1 or V0 for Zed. The rust crate tries both.
 	enc, err := encryptStringV1(pubKey, "a")
 	if err != nil {
+		logrus.Error(err)
 		c.JSON(500, gin.H{
 			"error":   "Internal Server Error",
 			"message": err.Error(),
