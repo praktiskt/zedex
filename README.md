@@ -27,7 +27,12 @@ zedex get extension $(cat .zedex-cache/extensions.json | jq -r '.data[].id' | xa
 zedex get latest-release
 
 # Serve the downloaded index, its extensions and info about the latest release
-zedex serve --local-mode --port=8080
+zedex serve --port=8080
+
+# You can run certain features in "passthrough" mode by disabling them in zedex. The
+# following command will fetch extensions and releases from zed, but handle the rest
+# of the calls itself.
+zedex serve --enable-extension-store=false --enable-releases=false
 ```
 
 Modify the Zed-settings file (`settings.json`) to use the proxy:
