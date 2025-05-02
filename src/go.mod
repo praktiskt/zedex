@@ -11,6 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
+	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	google.golang.org/protobuf v1.36.6
 )
 

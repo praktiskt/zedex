@@ -4,8 +4,10 @@ import (
 	"strings"
 
 	"zedex/llm"
+	"zedex/utils"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -16,6 +18,7 @@ const (
 
 type EditPredictClient struct {
 	OpenAIHost llm.OpenAIHost
+	cache      utils.ConcurrentMap[string, string]
 }
 
 type EditPredictRequest struct {
@@ -33,10 +36,20 @@ type EditPredictResponse struct {
 func NewEditPredictClient(openAIHost llm.OpenAIHost) EditPredictClient {
 	return EditPredictClient{
 		OpenAIHost: openAIHost,
+		cache:      utils.NewConcurrentMap[string, string](),
 	}
 }
 
 func (c *EditPredictClient) HandleRequest(req EditPredictRequest) (EditPredictResponse, error) {
+	if c.cache.Exists(req.InputExcerpt) {
+		logrus.Info("cache hit")
+		epr := EditPredictResponse{
+			RequestId:     uuid.New().String(),
+			OutputExcerpt: c.cache.Get(req.InputExcerpt),
+		}
+		return epr, nil
+	}
+
 	txt := extractEditableRegion(req.InputExcerpt)
 	resp, err := c.OpenAIHost.Chat(txt)
 	if err != nil || resp == nil {
@@ -45,10 +58,14 @@ func (c *EditPredictClient) HandleRequest(req EditPredictRequest) (EditPredictRe
 
 	predicted := extractEditableRegion(resp.GetLastResponse())
 	response := replaceEditableRegion(req.InputExcerpt, predicted)
-	return EditPredictResponse{
+
+	epr := EditPredictResponse{
 		RequestId:     uuid.New().String(),
 		OutputExcerpt: response,
-	}, nil
+	}
+	c.cache.Set(txt, epr.OutputExcerpt)
+
+	return epr, nil
 }
 
 func extractEditableRegion(s string) string {

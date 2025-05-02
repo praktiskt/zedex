@@ -73,6 +73,5 @@ func (api *API) Router() *gin.Engine {
 	})
 
 	router.POST("/predict_edits/v2", controller.HandleEditPredictRequest)
-
 	return router
 }

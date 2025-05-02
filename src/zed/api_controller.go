@@ -28,6 +28,8 @@ type Controller struct {
 	enableEditPrediction bool
 	enableReleases       bool
 	enableReleaseNotes   bool
+
+	editPredictClient EditPredictClient
 }
 
 func NewController(
@@ -40,6 +42,19 @@ func NewController(
 	port int,
 ) Controller {
 	_, envExists := os.LookupEnv("OPENAI_COMPATIBLE_API_KEY")
+	oai := llm.NewOpenAIHost(
+		utils.EnvWithFallback("OPENAI_COMPATIBLE_HOST", "https://api.groq.com/openai/v1/chat/completions"),
+		utils.IfElse(envExists, "OPENAI_COMPATIBLE_API_KEY", "GROQ_API_KEY"),
+	).
+		WithModel(utils.EnvWithFallback("OPENAI_COMPATIBLE_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")).
+		WithTemperature(0.1). // TODO: Use env.
+		WithSystemPrompt(utils.EnvWithFallback("OPENAI_COMPATIBLE_SYSTEM_PROMPT", `You are a code autocomplete engine.
+
+RULES:
+* Only respond with code (nothing else).
+* YOU MUST INCLUDE ALL PLACEHOLDERS "<|editable_region_start|>" AND "<|editable_region_end|>" IN YOUR RESPONSE.
+* YOU MAY ALTER ALL CODE CONTAINED WITHIN "<|editable_region_start|>" AND "<|editable_region_end|>".
+* ALWAYS AUTO COMPLETE AS LITTLE AS POSSIBLE`))
 	return Controller{
 		zed:                  zedClient,
 		enableExtensionStore: enableExtensionStore,
@@ -48,19 +63,7 @@ func NewController(
 		enableReleases:       enableReleases,
 		enableReleaseNotes:   enableReleaseNotes,
 		port:                 port,
-		llm: llm.NewOpenAIHost(
-			utils.EnvWithFallback("OPENAI_COMPATIBLE_HOST", "https://api.groq.com/openai/v1/chat/completions"),
-			utils.IfElse(envExists, "OPENAI_COMPATIBLE_API_KEY", "GROQ_API_KEY"),
-		).
-			WithModel(utils.EnvWithFallback("OPENAI_COMPATIBLE_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct")).
-			WithTemperature(0.1). // TODO: Use env.
-			WithSystemPrompt(utils.EnvWithFallback("OPENAI_COMPATIBLE_SYSTEM_PROMPT", `You are a code autocomplete engine.
-
-RULES:
-* Only respond with code (nothing else).
-* YOU MUST INCLUDE ALL PLACEHOLDERS "<|editable_region_start|>" AND "<|editable_region_end|>" IN YOUR RESPONSE.
-* YOU MAY ALTER ALL CODE CONTAINED WITHIN "<|editable_region_start|>" AND "<|editable_region_end|>".
-* ALWAYS AUTO COMPLETE AS LITTLE AS POSSIBLE`)),
+		editPredictClient:    NewEditPredictClient(*oai),
 	}
 }
 
@@ -274,7 +277,6 @@ func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
 }
 
 func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
-	ecp := NewEditPredictClient(*co.llm)
 	epr := EditPredictRequest{}
 	if err := c.ShouldBindJSON(&epr); err != nil {
 		logrus.Error(err)
@@ -282,7 +284,7 @@ func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
 		return
 	}
 
-	resp, err := ecp.HandleRequest(epr)
+	resp, err := co.editPredictClient.HandleRequest(epr)
 	if err != nil {
 		logrus.Error(err)
 		c.JSON(500, gin.H{"error": err.Error()})
