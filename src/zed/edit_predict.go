@@ -17,8 +17,9 @@ const (
 )
 
 type EditPredictClient struct {
-	OpenAIHost llm.OpenAIHost
-	cache      utils.ConcurrentMap[string, string]
+	OpenAIHost         llm.OpenAIHost
+	cache              utils.ConcurrentMap[string, string]
+	concurrentRequests chan struct{}
 }
 
 type EditPredictRequest struct {
@@ -35,17 +36,34 @@ type EditPredictResponse struct {
 
 func NewEditPredictClient(openAIHost llm.OpenAIHost) EditPredictClient {
 	return EditPredictClient{
-		OpenAIHost: openAIHost,
-		cache:      utils.NewConcurrentMap[string, string](),
+		OpenAIHost:         openAIHost,
+		cache:              utils.NewConcurrentMap[string, string](),
+		concurrentRequests: make(chan struct{}, 1),
 	}
 }
 
+// WithConcurrentLLMRequests controls the number of concurrent in-flight requests made
+// towards the backing LLM. Setting it to something low may potentially increase cache
+// hit rate.
+func (epc *EditPredictClient) WithConcurrentLLMRequests(num int) {
+	if num < 1 {
+		logrus.Fatal("must set concurrency capacity to at least 1")
+	}
+	epc.concurrentRequests = make(chan struct{}, num)
+}
+
 func (c *EditPredictClient) HandleRequest(req EditPredictRequest) (EditPredictResponse, error) {
-	if c.cache.Exists(req.InputExcerpt) {
-		logrus.Info("cache hit")
+	// TODO: This is a naive concurrency control. Zed fires 3x completion request, but
+	// it seems like it would only need one. By controlling concurrency we can more
+	// efficiently increase cache hit rate.
+	c.concurrentRequests <- struct{}{}
+	defer func() { <-c.concurrentRequests }()
+
+	if hit := c.cache.Get(req.InputExcerpt); hit != "" {
+		logrus.Debugf("cache hit")
 		epr := EditPredictResponse{
 			RequestId:     uuid.New().String(),
-			OutputExcerpt: c.cache.Get(req.InputExcerpt),
+			OutputExcerpt: hit,
 		}
 		return epr, nil
 	}
@@ -63,7 +81,7 @@ func (c *EditPredictClient) HandleRequest(req EditPredictRequest) (EditPredictRe
 		RequestId:     uuid.New().String(),
 		OutputExcerpt: response,
 	}
-	c.cache.Set(txt, epr.OutputExcerpt)
+	c.cache.Set(req.InputExcerpt, epr.OutputExcerpt)
 
 	return epr, nil
 }
@@ -71,17 +89,17 @@ func (c *EditPredictClient) HandleRequest(req EditPredictRequest) (EditPredictRe
 func extractEditableRegion(s string) string {
 	startIndex := strings.Index(s, EDIT_REGION_START)
 	endIndex := strings.Index(s, EDIT_REGION_END)
-	if startIndex != -1 && endIndex != -1 {
-		return s[startIndex : endIndex+len(EDIT_REGION_END)]
+	if startIndex == -1 || endIndex == -1 {
+		return ""
 	}
-	return ""
+	return s[startIndex : endIndex+len(EDIT_REGION_END)]
 }
 
 func replaceEditableRegion(original, replacement string) string {
 	startIndex := strings.Index(original, EDIT_REGION_START)
 	endIndex := strings.Index(original, EDIT_REGION_END)
-	if startIndex != -1 && endIndex != -1 {
-		return original[:startIndex] + replacement + original[endIndex+len(EDIT_REGION_END):]
+	if startIndex == -1 || endIndex == -1 {
+		return original
 	}
-	return original
+	return original[:startIndex] + replacement + original[endIndex+len(EDIT_REGION_END):]
 }
