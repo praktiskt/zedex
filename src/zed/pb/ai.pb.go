@@ -69,58 +69,6 @@ func (LanguageModelRole) EnumDescriptor() ([]byte, []int) {
 	return file_ai_proto_rawDescGZIP(), []int{0}
 }
 
-type LanguageModelProvider int32
-
-const (
-	LanguageModelProvider_Anthropic LanguageModelProvider = 0
-	LanguageModelProvider_OpenAI    LanguageModelProvider = 1
-	LanguageModelProvider_Google    LanguageModelProvider = 2
-	LanguageModelProvider_Zed       LanguageModelProvider = 3
-)
-
-// Enum value maps for LanguageModelProvider.
-var (
-	LanguageModelProvider_name = map[int32]string{
-		0: "Anthropic",
-		1: "OpenAI",
-		2: "Google",
-		3: "Zed",
-	}
-	LanguageModelProvider_value = map[string]int32{
-		"Anthropic": 0,
-		"OpenAI":    1,
-		"Google":    2,
-		"Zed":       3,
-	}
-)
-
-func (x LanguageModelProvider) Enum() *LanguageModelProvider {
-	p := new(LanguageModelProvider)
-	*p = x
-	return p
-}
-
-func (x LanguageModelProvider) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (LanguageModelProvider) Descriptor() protoreflect.EnumDescriptor {
-	return file_ai_proto_enumTypes[1].Descriptor()
-}
-
-func (LanguageModelProvider) Type() protoreflect.EnumType {
-	return &file_ai_proto_enumTypes[1]
-}
-
-func (x LanguageModelProvider) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use LanguageModelProvider.Descriptor instead.
-func (LanguageModelProvider) EnumDescriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{1}
-}
-
 type Context struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1296,367 +1244,6 @@ func (*RefreshLlmToken) Descriptor() ([]byte, []int) {
 	return file_ai_proto_rawDescGZIP(), []int{18}
 }
 
-type CountLanguageModelTokens struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Provider LanguageModelProvider `protobuf:"varint,1,opt,name=provider,proto3,enum=zed.messages.LanguageModelProvider" json:"provider,omitempty"`
-	Request  string                `protobuf:"bytes,2,opt,name=request,proto3" json:"request,omitempty"`
-}
-
-func (x *CountLanguageModelTokens) Reset() {
-	*x = CountLanguageModelTokens{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[19]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *CountLanguageModelTokens) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CountLanguageModelTokens) ProtoMessage() {}
-
-func (x *CountLanguageModelTokens) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[19]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CountLanguageModelTokens.ProtoReflect.Descriptor instead.
-func (*CountLanguageModelTokens) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{19}
-}
-
-func (x *CountLanguageModelTokens) GetProvider() LanguageModelProvider {
-	if x != nil {
-		return x.Provider
-	}
-	return LanguageModelProvider_Anthropic
-}
-
-func (x *CountLanguageModelTokens) GetRequest() string {
-	if x != nil {
-		return x.Request
-	}
-	return ""
-}
-
-type CountLanguageModelTokensResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	TokenCount uint32 `protobuf:"varint,1,opt,name=token_count,json=tokenCount,proto3" json:"token_count,omitempty"`
-}
-
-func (x *CountLanguageModelTokensResponse) Reset() {
-	*x = CountLanguageModelTokensResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[20]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *CountLanguageModelTokensResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CountLanguageModelTokensResponse) ProtoMessage() {}
-
-func (x *CountLanguageModelTokensResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[20]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CountLanguageModelTokensResponse.ProtoReflect.Descriptor instead.
-func (*CountLanguageModelTokensResponse) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{20}
-}
-
-func (x *CountLanguageModelTokensResponse) GetTokenCount() uint32 {
-	if x != nil {
-		return x.TokenCount
-	}
-	return 0
-}
-
-type GetCachedEmbeddings struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Model   string   `protobuf:"bytes,1,opt,name=model,proto3" json:"model,omitempty"`
-	Digests [][]byte `protobuf:"bytes,2,rep,name=digests,proto3" json:"digests,omitempty"`
-}
-
-func (x *GetCachedEmbeddings) Reset() {
-	*x = GetCachedEmbeddings{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[21]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *GetCachedEmbeddings) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetCachedEmbeddings) ProtoMessage() {}
-
-func (x *GetCachedEmbeddings) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[21]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetCachedEmbeddings.ProtoReflect.Descriptor instead.
-func (*GetCachedEmbeddings) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{21}
-}
-
-func (x *GetCachedEmbeddings) GetModel() string {
-	if x != nil {
-		return x.Model
-	}
-	return ""
-}
-
-func (x *GetCachedEmbeddings) GetDigests() [][]byte {
-	if x != nil {
-		return x.Digests
-	}
-	return nil
-}
-
-type GetCachedEmbeddingsResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Embeddings []*Embedding `protobuf:"bytes,1,rep,name=embeddings,proto3" json:"embeddings,omitempty"`
-}
-
-func (x *GetCachedEmbeddingsResponse) Reset() {
-	*x = GetCachedEmbeddingsResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[22]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *GetCachedEmbeddingsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetCachedEmbeddingsResponse) ProtoMessage() {}
-
-func (x *GetCachedEmbeddingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[22]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetCachedEmbeddingsResponse.ProtoReflect.Descriptor instead.
-func (*GetCachedEmbeddingsResponse) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *GetCachedEmbeddingsResponse) GetEmbeddings() []*Embedding {
-	if x != nil {
-		return x.Embeddings
-	}
-	return nil
-}
-
-type ComputeEmbeddings struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Model string   `protobuf:"bytes,1,opt,name=model,proto3" json:"model,omitempty"`
-	Texts []string `protobuf:"bytes,2,rep,name=texts,proto3" json:"texts,omitempty"`
-}
-
-func (x *ComputeEmbeddings) Reset() {
-	*x = ComputeEmbeddings{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[23]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ComputeEmbeddings) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ComputeEmbeddings) ProtoMessage() {}
-
-func (x *ComputeEmbeddings) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[23]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ComputeEmbeddings.ProtoReflect.Descriptor instead.
-func (*ComputeEmbeddings) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{23}
-}
-
-func (x *ComputeEmbeddings) GetModel() string {
-	if x != nil {
-		return x.Model
-	}
-	return ""
-}
-
-func (x *ComputeEmbeddings) GetTexts() []string {
-	if x != nil {
-		return x.Texts
-	}
-	return nil
-}
-
-type ComputeEmbeddingsResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Embeddings []*Embedding `protobuf:"bytes,1,rep,name=embeddings,proto3" json:"embeddings,omitempty"`
-}
-
-func (x *ComputeEmbeddingsResponse) Reset() {
-	*x = ComputeEmbeddingsResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[24]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ComputeEmbeddingsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ComputeEmbeddingsResponse) ProtoMessage() {}
-
-func (x *ComputeEmbeddingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[24]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ComputeEmbeddingsResponse.ProtoReflect.Descriptor instead.
-func (*ComputeEmbeddingsResponse) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{24}
-}
-
-func (x *ComputeEmbeddingsResponse) GetEmbeddings() []*Embedding {
-	if x != nil {
-		return x.Embeddings
-	}
-	return nil
-}
-
-type Embedding struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Digest     []byte    `protobuf:"bytes,1,opt,name=digest,proto3" json:"digest,omitempty"`
-	Dimensions []float32 `protobuf:"fixed32,2,rep,packed,name=dimensions,proto3" json:"dimensions,omitempty"`
-}
-
-func (x *Embedding) Reset() {
-	*x = Embedding{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[25]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Embedding) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Embedding) ProtoMessage() {}
-
-func (x *Embedding) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[25]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Embedding.ProtoReflect.Descriptor instead.
-func (*Embedding) Descriptor() ([]byte, []int) {
-	return file_ai_proto_rawDescGZIP(), []int{25}
-}
-
-func (x *Embedding) GetDigest() []byte {
-	if x != nil {
-		return x.Digest
-	}
-	return nil
-}
-
-func (x *Embedding) GetDimensions() []float32 {
-	if x != nil {
-		return x.Dimensions
-	}
-	return nil
-}
-
 type ContextMessageStatus_Done struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1666,7 +1253,7 @@ type ContextMessageStatus_Done struct {
 func (x *ContextMessageStatus_Done) Reset() {
 	*x = ContextMessageStatus_Done{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[26]
+		mi := &file_ai_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1679,7 +1266,7 @@ func (x *ContextMessageStatus_Done) String() string {
 func (*ContextMessageStatus_Done) ProtoMessage() {}
 
 func (x *ContextMessageStatus_Done) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[26]
+	mi := &file_ai_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1704,7 +1291,7 @@ type ContextMessageStatus_Pending struct {
 func (x *ContextMessageStatus_Pending) Reset() {
 	*x = ContextMessageStatus_Pending{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[27]
+		mi := &file_ai_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1717,7 +1304,7 @@ func (x *ContextMessageStatus_Pending) String() string {
 func (*ContextMessageStatus_Pending) ProtoMessage() {}
 
 func (x *ContextMessageStatus_Pending) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[27]
+	mi := &file_ai_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1744,7 +1331,7 @@ type ContextMessageStatus_Error struct {
 func (x *ContextMessageStatus_Error) Reset() {
 	*x = ContextMessageStatus_Error{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[28]
+		mi := &file_ai_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1757,7 +1344,7 @@ func (x *ContextMessageStatus_Error) String() string {
 func (*ContextMessageStatus_Error) ProtoMessage() {}
 
 func (x *ContextMessageStatus_Error) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[28]
+	mi := &file_ai_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1789,7 +1376,7 @@ type ContextMessageStatus_Canceled struct {
 func (x *ContextMessageStatus_Canceled) Reset() {
 	*x = ContextMessageStatus_Canceled{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[29]
+		mi := &file_ai_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1802,7 +1389,7 @@ func (x *ContextMessageStatus_Canceled) String() string {
 func (*ContextMessageStatus_Canceled) ProtoMessage() {}
 
 func (x *ContextMessageStatus_Canceled) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[29]
+	mi := &file_ai_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1830,7 +1417,7 @@ type ContextOperation_InsertMessage struct {
 func (x *ContextOperation_InsertMessage) Reset() {
 	*x = ContextOperation_InsertMessage{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[30]
+		mi := &file_ai_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1843,7 +1430,7 @@ func (x *ContextOperation_InsertMessage) String() string {
 func (*ContextOperation_InsertMessage) ProtoMessage() {}
 
 func (x *ContextOperation_InsertMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[30]
+	mi := &file_ai_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1888,7 +1475,7 @@ type ContextOperation_UpdateMessage struct {
 func (x *ContextOperation_UpdateMessage) Reset() {
 	*x = ContextOperation_UpdateMessage{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[31]
+		mi := &file_ai_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1901,7 +1488,7 @@ func (x *ContextOperation_UpdateMessage) String() string {
 func (*ContextOperation_UpdateMessage) ProtoMessage() {}
 
 func (x *ContextOperation_UpdateMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[31]
+	mi := &file_ai_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1966,7 +1553,7 @@ type ContextOperation_UpdateSummary struct {
 func (x *ContextOperation_UpdateSummary) Reset() {
 	*x = ContextOperation_UpdateSummary{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[32]
+		mi := &file_ai_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1979,7 +1566,7 @@ func (x *ContextOperation_UpdateSummary) String() string {
 func (*ContextOperation_UpdateSummary) ProtoMessage() {}
 
 func (x *ContextOperation_UpdateSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[32]
+	mi := &file_ai_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2037,7 +1624,7 @@ type ContextOperation_SlashCommandStarted struct {
 func (x *ContextOperation_SlashCommandStarted) Reset() {
 	*x = ContextOperation_SlashCommandStarted{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[33]
+		mi := &file_ai_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2050,7 +1637,7 @@ func (x *ContextOperation_SlashCommandStarted) String() string {
 func (*ContextOperation_SlashCommandStarted) ProtoMessage() {}
 
 func (x *ContextOperation_SlashCommandStarted) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[33]
+	mi := &file_ai_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2107,7 +1694,7 @@ type ContextOperation_SlashCommandOutputSectionAdded struct {
 func (x *ContextOperation_SlashCommandOutputSectionAdded) Reset() {
 	*x = ContextOperation_SlashCommandOutputSectionAdded{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[34]
+		mi := &file_ai_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2120,7 +1707,7 @@ func (x *ContextOperation_SlashCommandOutputSectionAdded) String() string {
 func (*ContextOperation_SlashCommandOutputSectionAdded) ProtoMessage() {}
 
 func (x *ContextOperation_SlashCommandOutputSectionAdded) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[34]
+	mi := &file_ai_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2171,7 +1758,7 @@ type ContextOperation_SlashCommandCompleted struct {
 func (x *ContextOperation_SlashCommandCompleted) Reset() {
 	*x = ContextOperation_SlashCommandCompleted{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[35]
+		mi := &file_ai_proto_msgTypes[28]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2184,7 +1771,7 @@ func (x *ContextOperation_SlashCommandCompleted) String() string {
 func (*ContextOperation_SlashCommandCompleted) ProtoMessage() {}
 
 func (x *ContextOperation_SlashCommandCompleted) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[35]
+	mi := &file_ai_proto_msgTypes[28]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2241,7 +1828,7 @@ type ContextOperation_ThoughtProcessOutputSectionAdded struct {
 func (x *ContextOperation_ThoughtProcessOutputSectionAdded) Reset() {
 	*x = ContextOperation_ThoughtProcessOutputSectionAdded{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[36]
+		mi := &file_ai_proto_msgTypes[29]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2254,7 +1841,7 @@ func (x *ContextOperation_ThoughtProcessOutputSectionAdded) String() string {
 func (*ContextOperation_ThoughtProcessOutputSectionAdded) ProtoMessage() {}
 
 func (x *ContextOperation_ThoughtProcessOutputSectionAdded) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[36]
+	mi := &file_ai_proto_msgTypes[29]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2302,7 +1889,7 @@ type ContextOperation_BufferOperation struct {
 func (x *ContextOperation_BufferOperation) Reset() {
 	*x = ContextOperation_BufferOperation{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_proto_msgTypes[37]
+		mi := &file_ai_proto_msgTypes[30]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2315,7 +1902,7 @@ func (x *ContextOperation_BufferOperation) String() string {
 func (*ContextOperation_BufferOperation) ProtoMessage() {}
 
 func (x *ContextOperation_BufferOperation) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_proto_msgTypes[37]
+	mi := &file_ai_proto_msgTypes[30]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2629,53 +2216,13 @@ var file_ai_proto_rawDesc = []byte{
 	0x65, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x6f,
 	0x6b, 0x65, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x74, 0x6f, 0x6b, 0x65, 0x6e,
 	0x22, 0x11, 0x0a, 0x0f, 0x52, 0x65, 0x66, 0x72, 0x65, 0x73, 0x68, 0x4c, 0x6c, 0x6d, 0x54, 0x6f,
-	0x6b, 0x65, 0x6e, 0x22, 0x75, 0x0a, 0x18, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x4c, 0x61, 0x6e, 0x67,
-	0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x6c, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x73, 0x12,
-	0x3f, 0x0a, 0x08, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0e, 0x32, 0x23, 0x2e, 0x7a, 0x65, 0x64, 0x2e, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73,
-	0x2e, 0x4c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x6c, 0x50, 0x72,
-	0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x52, 0x08, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72,
-	0x12, 0x18, 0x0a, 0x07, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x07, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x43, 0x0a, 0x20, 0x43, 0x6f,
-	0x75, 0x6e, 0x74, 0x4c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x6c,
-	0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1f,
-	0x0a, 0x0b, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x5f, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x0d, 0x52, 0x0a, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x22,
-	0x45, 0x0a, 0x13, 0x47, 0x65, 0x74, 0x43, 0x61, 0x63, 0x68, 0x65, 0x64, 0x45, 0x6d, 0x62, 0x65,
-	0x64, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x12, 0x18, 0x0a, 0x07,
-	0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0c, 0x52, 0x07, 0x64,
-	0x69, 0x67, 0x65, 0x73, 0x74, 0x73, 0x22, 0x56, 0x0a, 0x1b, 0x47, 0x65, 0x74, 0x43, 0x61, 0x63,
-	0x68, 0x65, 0x64, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x37, 0x0a, 0x0a, 0x65, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69,
-	0x6e, 0x67, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x7a, 0x65, 0x64, 0x2e,
-	0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x2e, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69,
-	0x6e, 0x67, 0x52, 0x0a, 0x65, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x22, 0x3f,
-	0x0a, 0x11, 0x43, 0x6f, 0x6d, 0x70, 0x75, 0x74, 0x65, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69,
-	0x6e, 0x67, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x05, 0x6d, 0x6f, 0x64, 0x65, 0x6c, 0x12, 0x14, 0x0a, 0x05, 0x74, 0x65, 0x78,
-	0x74, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x05, 0x74, 0x65, 0x78, 0x74, 0x73, 0x22,
-	0x54, 0x0a, 0x19, 0x43, 0x6f, 0x6d, 0x70, 0x75, 0x74, 0x65, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64,
-	0x69, 0x6e, 0x67, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x37, 0x0a, 0x0a,
-	0x65, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b,
-	0x32, 0x17, 0x2e, 0x7a, 0x65, 0x64, 0x2e, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x2e,
-	0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x52, 0x0a, 0x65, 0x6d, 0x62, 0x65, 0x64,
-	0x64, 0x69, 0x6e, 0x67, 0x73, 0x22, 0x43, 0x0a, 0x09, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69,
-	0x6e, 0x67, 0x12, 0x16, 0x0a, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x0c, 0x52, 0x06, 0x64, 0x69, 0x67, 0x65, 0x73, 0x74, 0x12, 0x1e, 0x0a, 0x0a, 0x64, 0x69,
-	0x6d, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x02, 0x52, 0x0a,
-	0x64, 0x69, 0x6d, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x2a, 0x65, 0x0a, 0x11, 0x4c, 0x61,
-	0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x6c, 0x52, 0x6f, 0x6c, 0x65, 0x12,
-	0x15, 0x0a, 0x11, 0x4c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x6c,
-	0x55, 0x73, 0x65, 0x72, 0x10, 0x00, 0x12, 0x1a, 0x0a, 0x16, 0x4c, 0x61, 0x6e, 0x67, 0x75, 0x61,
-	0x67, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x6c, 0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74,
-	0x10, 0x01, 0x12, 0x17, 0x0a, 0x13, 0x4c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f,
-	0x64, 0x65, 0x6c, 0x53, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x10, 0x02, 0x22, 0x04, 0x08, 0x03, 0x10,
-	0x03, 0x2a, 0x47, 0x0a, 0x15, 0x4c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f, 0x64,
-	0x65, 0x6c, 0x50, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x12, 0x0d, 0x0a, 0x09, 0x41, 0x6e,
-	0x74, 0x68, 0x72, 0x6f, 0x70, 0x69, 0x63, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x4f, 0x70, 0x65,
-	0x6e, 0x41, 0x49, 0x10, 0x01, 0x12, 0x0a, 0x0a, 0x06, 0x47, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x10,
-	0x02, 0x12, 0x07, 0x0a, 0x03, 0x5a, 0x65, 0x64, 0x10, 0x03, 0x42, 0x06, 0x5a, 0x04, 0x2e, 0x2f,
+	0x6b, 0x65, 0x6e, 0x2a, 0x65, 0x0a, 0x11, 0x4c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x4d,
+	0x6f, 0x64, 0x65, 0x6c, 0x52, 0x6f, 0x6c, 0x65, 0x12, 0x15, 0x0a, 0x11, 0x4c, 0x61, 0x6e, 0x67,
+	0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x6c, 0x55, 0x73, 0x65, 0x72, 0x10, 0x00, 0x12,
+	0x1a, 0x0a, 0x16, 0x4c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x6c,
+	0x41, 0x73, 0x73, 0x69, 0x73, 0x74, 0x61, 0x6e, 0x74, 0x10, 0x01, 0x12, 0x17, 0x0a, 0x13, 0x4c,
+	0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x4d, 0x6f, 0x64, 0x65, 0x6c, 0x53, 0x79, 0x73, 0x74,
+	0x65, 0x6d, 0x10, 0x02, 0x22, 0x04, 0x08, 0x03, 0x10, 0x03, 0x42, 0x06, 0x5a, 0x04, 0x2e, 0x2f,
 	0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
@@ -2691,113 +2238,102 @@ func file_ai_proto_rawDescGZIP() []byte {
 	return file_ai_proto_rawDescData
 }
 
-var file_ai_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_ai_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_ai_proto_goTypes = []interface{}{
 	(LanguageModelRole)(0),                                    // 0: zed.messages.LanguageModelRole
-	(LanguageModelProvider)(0),                                // 1: zed.messages.LanguageModelProvider
-	(*Context)(nil),                                           // 2: zed.messages.Context
-	(*ContextMetadata)(nil),                                   // 3: zed.messages.ContextMetadata
-	(*ContextMessageStatus)(nil),                              // 4: zed.messages.ContextMessageStatus
-	(*ContextMessage)(nil),                                    // 5: zed.messages.ContextMessage
-	(*SlashCommandOutputSection)(nil),                         // 6: zed.messages.SlashCommandOutputSection
-	(*ThoughtProcessOutputSection)(nil),                       // 7: zed.messages.ThoughtProcessOutputSection
-	(*ContextOperation)(nil),                                  // 8: zed.messages.ContextOperation
-	(*AdvertiseContexts)(nil),                                 // 9: zed.messages.AdvertiseContexts
-	(*OpenContext)(nil),                                       // 10: zed.messages.OpenContext
-	(*OpenContextResponse)(nil),                               // 11: zed.messages.OpenContextResponse
-	(*CreateContext)(nil),                                     // 12: zed.messages.CreateContext
-	(*CreateContextResponse)(nil),                             // 13: zed.messages.CreateContextResponse
-	(*UpdateContext)(nil),                                     // 14: zed.messages.UpdateContext
-	(*ContextVersion)(nil),                                    // 15: zed.messages.ContextVersion
-	(*SynchronizeContexts)(nil),                               // 16: zed.messages.SynchronizeContexts
-	(*SynchronizeContextsResponse)(nil),                       // 17: zed.messages.SynchronizeContextsResponse
-	(*GetLlmToken)(nil),                                       // 18: zed.messages.GetLlmToken
-	(*GetLlmTokenResponse)(nil),                               // 19: zed.messages.GetLlmTokenResponse
-	(*RefreshLlmToken)(nil),                                   // 20: zed.messages.RefreshLlmToken
-	(*CountLanguageModelTokens)(nil),                          // 21: zed.messages.CountLanguageModelTokens
-	(*CountLanguageModelTokensResponse)(nil),                  // 22: zed.messages.CountLanguageModelTokensResponse
-	(*GetCachedEmbeddings)(nil),                               // 23: zed.messages.GetCachedEmbeddings
-	(*GetCachedEmbeddingsResponse)(nil),                       // 24: zed.messages.GetCachedEmbeddingsResponse
-	(*ComputeEmbeddings)(nil),                                 // 25: zed.messages.ComputeEmbeddings
-	(*ComputeEmbeddingsResponse)(nil),                         // 26: zed.messages.ComputeEmbeddingsResponse
-	(*Embedding)(nil),                                         // 27: zed.messages.Embedding
-	(*ContextMessageStatus_Done)(nil),                         // 28: zed.messages.ContextMessageStatus.Done
-	(*ContextMessageStatus_Pending)(nil),                      // 29: zed.messages.ContextMessageStatus.Pending
-	(*ContextMessageStatus_Error)(nil),                        // 30: zed.messages.ContextMessageStatus.Error
-	(*ContextMessageStatus_Canceled)(nil),                     // 31: zed.messages.ContextMessageStatus.Canceled
-	(*ContextOperation_InsertMessage)(nil),                    // 32: zed.messages.ContextOperation.InsertMessage
-	(*ContextOperation_UpdateMessage)(nil),                    // 33: zed.messages.ContextOperation.UpdateMessage
-	(*ContextOperation_UpdateSummary)(nil),                    // 34: zed.messages.ContextOperation.UpdateSummary
-	(*ContextOperation_SlashCommandStarted)(nil),              // 35: zed.messages.ContextOperation.SlashCommandStarted
-	(*ContextOperation_SlashCommandOutputSectionAdded)(nil),   // 36: zed.messages.ContextOperation.SlashCommandOutputSectionAdded
-	(*ContextOperation_SlashCommandCompleted)(nil),            // 37: zed.messages.ContextOperation.SlashCommandCompleted
-	(*ContextOperation_ThoughtProcessOutputSectionAdded)(nil), // 38: zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded
-	(*ContextOperation_BufferOperation)(nil),                  // 39: zed.messages.ContextOperation.BufferOperation
-	(*LamportTimestamp)(nil),                                  // 40: zed.messages.LamportTimestamp
-	(*Anchor)(nil),                                            // 41: zed.messages.Anchor
-	(*AnchorRange)(nil),                                       // 42: zed.messages.AnchorRange
-	(*VectorClockEntry)(nil),                                  // 43: zed.messages.VectorClockEntry
-	(*Operation)(nil),                                         // 44: zed.messages.Operation
+	(*Context)(nil),                                           // 1: zed.messages.Context
+	(*ContextMetadata)(nil),                                   // 2: zed.messages.ContextMetadata
+	(*ContextMessageStatus)(nil),                              // 3: zed.messages.ContextMessageStatus
+	(*ContextMessage)(nil),                                    // 4: zed.messages.ContextMessage
+	(*SlashCommandOutputSection)(nil),                         // 5: zed.messages.SlashCommandOutputSection
+	(*ThoughtProcessOutputSection)(nil),                       // 6: zed.messages.ThoughtProcessOutputSection
+	(*ContextOperation)(nil),                                  // 7: zed.messages.ContextOperation
+	(*AdvertiseContexts)(nil),                                 // 8: zed.messages.AdvertiseContexts
+	(*OpenContext)(nil),                                       // 9: zed.messages.OpenContext
+	(*OpenContextResponse)(nil),                               // 10: zed.messages.OpenContextResponse
+	(*CreateContext)(nil),                                     // 11: zed.messages.CreateContext
+	(*CreateContextResponse)(nil),                             // 12: zed.messages.CreateContextResponse
+	(*UpdateContext)(nil),                                     // 13: zed.messages.UpdateContext
+	(*ContextVersion)(nil),                                    // 14: zed.messages.ContextVersion
+	(*SynchronizeContexts)(nil),                               // 15: zed.messages.SynchronizeContexts
+	(*SynchronizeContextsResponse)(nil),                       // 16: zed.messages.SynchronizeContextsResponse
+	(*GetLlmToken)(nil),                                       // 17: zed.messages.GetLlmToken
+	(*GetLlmTokenResponse)(nil),                               // 18: zed.messages.GetLlmTokenResponse
+	(*RefreshLlmToken)(nil),                                   // 19: zed.messages.RefreshLlmToken
+	(*ContextMessageStatus_Done)(nil),                         // 20: zed.messages.ContextMessageStatus.Done
+	(*ContextMessageStatus_Pending)(nil),                      // 21: zed.messages.ContextMessageStatus.Pending
+	(*ContextMessageStatus_Error)(nil),                        // 22: zed.messages.ContextMessageStatus.Error
+	(*ContextMessageStatus_Canceled)(nil),                     // 23: zed.messages.ContextMessageStatus.Canceled
+	(*ContextOperation_InsertMessage)(nil),                    // 24: zed.messages.ContextOperation.InsertMessage
+	(*ContextOperation_UpdateMessage)(nil),                    // 25: zed.messages.ContextOperation.UpdateMessage
+	(*ContextOperation_UpdateSummary)(nil),                    // 26: zed.messages.ContextOperation.UpdateSummary
+	(*ContextOperation_SlashCommandStarted)(nil),              // 27: zed.messages.ContextOperation.SlashCommandStarted
+	(*ContextOperation_SlashCommandOutputSectionAdded)(nil),   // 28: zed.messages.ContextOperation.SlashCommandOutputSectionAdded
+	(*ContextOperation_SlashCommandCompleted)(nil),            // 29: zed.messages.ContextOperation.SlashCommandCompleted
+	(*ContextOperation_ThoughtProcessOutputSectionAdded)(nil), // 30: zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded
+	(*ContextOperation_BufferOperation)(nil),                  // 31: zed.messages.ContextOperation.BufferOperation
+	(*LamportTimestamp)(nil),                                  // 32: zed.messages.LamportTimestamp
+	(*Anchor)(nil),                                            // 33: zed.messages.Anchor
+	(*AnchorRange)(nil),                                       // 34: zed.messages.AnchorRange
+	(*VectorClockEntry)(nil),                                  // 35: zed.messages.VectorClockEntry
+	(*Operation)(nil),                                         // 36: zed.messages.Operation
 }
 var file_ai_proto_depIdxs = []int32{
-	8,  // 0: zed.messages.Context.operations:type_name -> zed.messages.ContextOperation
-	28, // 1: zed.messages.ContextMessageStatus.done:type_name -> zed.messages.ContextMessageStatus.Done
-	29, // 2: zed.messages.ContextMessageStatus.pending:type_name -> zed.messages.ContextMessageStatus.Pending
-	30, // 3: zed.messages.ContextMessageStatus.error:type_name -> zed.messages.ContextMessageStatus.Error
-	31, // 4: zed.messages.ContextMessageStatus.canceled:type_name -> zed.messages.ContextMessageStatus.Canceled
-	40, // 5: zed.messages.ContextMessage.id:type_name -> zed.messages.LamportTimestamp
-	41, // 6: zed.messages.ContextMessage.start:type_name -> zed.messages.Anchor
+	7,  // 0: zed.messages.Context.operations:type_name -> zed.messages.ContextOperation
+	20, // 1: zed.messages.ContextMessageStatus.done:type_name -> zed.messages.ContextMessageStatus.Done
+	21, // 2: zed.messages.ContextMessageStatus.pending:type_name -> zed.messages.ContextMessageStatus.Pending
+	22, // 3: zed.messages.ContextMessageStatus.error:type_name -> zed.messages.ContextMessageStatus.Error
+	23, // 4: zed.messages.ContextMessageStatus.canceled:type_name -> zed.messages.ContextMessageStatus.Canceled
+	32, // 5: zed.messages.ContextMessage.id:type_name -> zed.messages.LamportTimestamp
+	33, // 6: zed.messages.ContextMessage.start:type_name -> zed.messages.Anchor
 	0,  // 7: zed.messages.ContextMessage.role:type_name -> zed.messages.LanguageModelRole
-	4,  // 8: zed.messages.ContextMessage.status:type_name -> zed.messages.ContextMessageStatus
-	42, // 9: zed.messages.SlashCommandOutputSection.range:type_name -> zed.messages.AnchorRange
-	42, // 10: zed.messages.ThoughtProcessOutputSection.range:type_name -> zed.messages.AnchorRange
-	32, // 11: zed.messages.ContextOperation.insert_message:type_name -> zed.messages.ContextOperation.InsertMessage
-	33, // 12: zed.messages.ContextOperation.update_message:type_name -> zed.messages.ContextOperation.UpdateMessage
-	34, // 13: zed.messages.ContextOperation.update_summary:type_name -> zed.messages.ContextOperation.UpdateSummary
-	39, // 14: zed.messages.ContextOperation.buffer_operation:type_name -> zed.messages.ContextOperation.BufferOperation
-	35, // 15: zed.messages.ContextOperation.slash_command_started:type_name -> zed.messages.ContextOperation.SlashCommandStarted
-	36, // 16: zed.messages.ContextOperation.slash_command_output_section_added:type_name -> zed.messages.ContextOperation.SlashCommandOutputSectionAdded
-	37, // 17: zed.messages.ContextOperation.slash_command_completed:type_name -> zed.messages.ContextOperation.SlashCommandCompleted
-	38, // 18: zed.messages.ContextOperation.thought_process_output_section_added:type_name -> zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded
-	3,  // 19: zed.messages.AdvertiseContexts.contexts:type_name -> zed.messages.ContextMetadata
-	2,  // 20: zed.messages.OpenContextResponse.context:type_name -> zed.messages.Context
-	2,  // 21: zed.messages.CreateContextResponse.context:type_name -> zed.messages.Context
-	8,  // 22: zed.messages.UpdateContext.operation:type_name -> zed.messages.ContextOperation
-	43, // 23: zed.messages.ContextVersion.context_version:type_name -> zed.messages.VectorClockEntry
-	43, // 24: zed.messages.ContextVersion.buffer_version:type_name -> zed.messages.VectorClockEntry
-	15, // 25: zed.messages.SynchronizeContexts.contexts:type_name -> zed.messages.ContextVersion
-	15, // 26: zed.messages.SynchronizeContextsResponse.contexts:type_name -> zed.messages.ContextVersion
-	1,  // 27: zed.messages.CountLanguageModelTokens.provider:type_name -> zed.messages.LanguageModelProvider
-	27, // 28: zed.messages.GetCachedEmbeddingsResponse.embeddings:type_name -> zed.messages.Embedding
-	27, // 29: zed.messages.ComputeEmbeddingsResponse.embeddings:type_name -> zed.messages.Embedding
-	5,  // 30: zed.messages.ContextOperation.InsertMessage.message:type_name -> zed.messages.ContextMessage
-	43, // 31: zed.messages.ContextOperation.InsertMessage.version:type_name -> zed.messages.VectorClockEntry
-	40, // 32: zed.messages.ContextOperation.UpdateMessage.message_id:type_name -> zed.messages.LamportTimestamp
-	0,  // 33: zed.messages.ContextOperation.UpdateMessage.role:type_name -> zed.messages.LanguageModelRole
-	4,  // 34: zed.messages.ContextOperation.UpdateMessage.status:type_name -> zed.messages.ContextMessageStatus
-	40, // 35: zed.messages.ContextOperation.UpdateMessage.timestamp:type_name -> zed.messages.LamportTimestamp
-	43, // 36: zed.messages.ContextOperation.UpdateMessage.version:type_name -> zed.messages.VectorClockEntry
-	40, // 37: zed.messages.ContextOperation.UpdateSummary.timestamp:type_name -> zed.messages.LamportTimestamp
-	43, // 38: zed.messages.ContextOperation.UpdateSummary.version:type_name -> zed.messages.VectorClockEntry
-	40, // 39: zed.messages.ContextOperation.SlashCommandStarted.id:type_name -> zed.messages.LamportTimestamp
-	42, // 40: zed.messages.ContextOperation.SlashCommandStarted.output_range:type_name -> zed.messages.AnchorRange
-	43, // 41: zed.messages.ContextOperation.SlashCommandStarted.version:type_name -> zed.messages.VectorClockEntry
-	40, // 42: zed.messages.ContextOperation.SlashCommandOutputSectionAdded.timestamp:type_name -> zed.messages.LamportTimestamp
-	6,  // 43: zed.messages.ContextOperation.SlashCommandOutputSectionAdded.section:type_name -> zed.messages.SlashCommandOutputSection
-	43, // 44: zed.messages.ContextOperation.SlashCommandOutputSectionAdded.version:type_name -> zed.messages.VectorClockEntry
-	40, // 45: zed.messages.ContextOperation.SlashCommandCompleted.id:type_name -> zed.messages.LamportTimestamp
-	40, // 46: zed.messages.ContextOperation.SlashCommandCompleted.timestamp:type_name -> zed.messages.LamportTimestamp
-	43, // 47: zed.messages.ContextOperation.SlashCommandCompleted.version:type_name -> zed.messages.VectorClockEntry
-	40, // 48: zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded.timestamp:type_name -> zed.messages.LamportTimestamp
-	7,  // 49: zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded.section:type_name -> zed.messages.ThoughtProcessOutputSection
-	43, // 50: zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded.version:type_name -> zed.messages.VectorClockEntry
-	44, // 51: zed.messages.ContextOperation.BufferOperation.operation:type_name -> zed.messages.Operation
-	52, // [52:52] is the sub-list for method output_type
-	52, // [52:52] is the sub-list for method input_type
-	52, // [52:52] is the sub-list for extension type_name
-	52, // [52:52] is the sub-list for extension extendee
-	0,  // [0:52] is the sub-list for field type_name
+	3,  // 8: zed.messages.ContextMessage.status:type_name -> zed.messages.ContextMessageStatus
+	34, // 9: zed.messages.SlashCommandOutputSection.range:type_name -> zed.messages.AnchorRange
+	34, // 10: zed.messages.ThoughtProcessOutputSection.range:type_name -> zed.messages.AnchorRange
+	24, // 11: zed.messages.ContextOperation.insert_message:type_name -> zed.messages.ContextOperation.InsertMessage
+	25, // 12: zed.messages.ContextOperation.update_message:type_name -> zed.messages.ContextOperation.UpdateMessage
+	26, // 13: zed.messages.ContextOperation.update_summary:type_name -> zed.messages.ContextOperation.UpdateSummary
+	31, // 14: zed.messages.ContextOperation.buffer_operation:type_name -> zed.messages.ContextOperation.BufferOperation
+	27, // 15: zed.messages.ContextOperation.slash_command_started:type_name -> zed.messages.ContextOperation.SlashCommandStarted
+	28, // 16: zed.messages.ContextOperation.slash_command_output_section_added:type_name -> zed.messages.ContextOperation.SlashCommandOutputSectionAdded
+	29, // 17: zed.messages.ContextOperation.slash_command_completed:type_name -> zed.messages.ContextOperation.SlashCommandCompleted
+	30, // 18: zed.messages.ContextOperation.thought_process_output_section_added:type_name -> zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded
+	2,  // 19: zed.messages.AdvertiseContexts.contexts:type_name -> zed.messages.ContextMetadata
+	1,  // 20: zed.messages.OpenContextResponse.context:type_name -> zed.messages.Context
+	1,  // 21: zed.messages.CreateContextResponse.context:type_name -> zed.messages.Context
+	7,  // 22: zed.messages.UpdateContext.operation:type_name -> zed.messages.ContextOperation
+	35, // 23: zed.messages.ContextVersion.context_version:type_name -> zed.messages.VectorClockEntry
+	35, // 24: zed.messages.ContextVersion.buffer_version:type_name -> zed.messages.VectorClockEntry
+	14, // 25: zed.messages.SynchronizeContexts.contexts:type_name -> zed.messages.ContextVersion
+	14, // 26: zed.messages.SynchronizeContextsResponse.contexts:type_name -> zed.messages.ContextVersion
+	4,  // 27: zed.messages.ContextOperation.InsertMessage.message:type_name -> zed.messages.ContextMessage
+	35, // 28: zed.messages.ContextOperation.InsertMessage.version:type_name -> zed.messages.VectorClockEntry
+	32, // 29: zed.messages.ContextOperation.UpdateMessage.message_id:type_name -> zed.messages.LamportTimestamp
+	0,  // 30: zed.messages.ContextOperation.UpdateMessage.role:type_name -> zed.messages.LanguageModelRole
+	3,  // 31: zed.messages.ContextOperation.UpdateMessage.status:type_name -> zed.messages.ContextMessageStatus
+	32, // 32: zed.messages.ContextOperation.UpdateMessage.timestamp:type_name -> zed.messages.LamportTimestamp
+	35, // 33: zed.messages.ContextOperation.UpdateMessage.version:type_name -> zed.messages.VectorClockEntry
+	32, // 34: zed.messages.ContextOperation.UpdateSummary.timestamp:type_name -> zed.messages.LamportTimestamp
+	35, // 35: zed.messages.ContextOperation.UpdateSummary.version:type_name -> zed.messages.VectorClockEntry
+	32, // 36: zed.messages.ContextOperation.SlashCommandStarted.id:type_name -> zed.messages.LamportTimestamp
+	34, // 37: zed.messages.ContextOperation.SlashCommandStarted.output_range:type_name -> zed.messages.AnchorRange
+	35, // 38: zed.messages.ContextOperation.SlashCommandStarted.version:type_name -> zed.messages.VectorClockEntry
+	32, // 39: zed.messages.ContextOperation.SlashCommandOutputSectionAdded.timestamp:type_name -> zed.messages.LamportTimestamp
+	5,  // 40: zed.messages.ContextOperation.SlashCommandOutputSectionAdded.section:type_name -> zed.messages.SlashCommandOutputSection
+	35, // 41: zed.messages.ContextOperation.SlashCommandOutputSectionAdded.version:type_name -> zed.messages.VectorClockEntry
+	32, // 42: zed.messages.ContextOperation.SlashCommandCompleted.id:type_name -> zed.messages.LamportTimestamp
+	32, // 43: zed.messages.ContextOperation.SlashCommandCompleted.timestamp:type_name -> zed.messages.LamportTimestamp
+	35, // 44: zed.messages.ContextOperation.SlashCommandCompleted.version:type_name -> zed.messages.VectorClockEntry
+	32, // 45: zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded.timestamp:type_name -> zed.messages.LamportTimestamp
+	6,  // 46: zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded.section:type_name -> zed.messages.ThoughtProcessOutputSection
+	35, // 47: zed.messages.ContextOperation.ThoughtProcessOutputSectionAdded.version:type_name -> zed.messages.VectorClockEntry
+	36, // 48: zed.messages.ContextOperation.BufferOperation.operation:type_name -> zed.messages.Operation
+	49, // [49:49] is the sub-list for method output_type
+	49, // [49:49] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_ai_proto_init() }
@@ -3036,90 +2572,6 @@ func file_ai_proto_init() {
 			}
 		}
 		file_ai_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CountLanguageModelTokens); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ai_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CountLanguageModelTokensResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ai_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetCachedEmbeddings); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ai_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetCachedEmbeddingsResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ai_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ComputeEmbeddings); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ai_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ComputeEmbeddingsResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ai_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Embedding); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_ai_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextMessageStatus_Done); i {
 			case 0:
 				return &v.state
@@ -3131,7 +2583,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextMessageStatus_Pending); i {
 			case 0:
 				return &v.state
@@ -3143,7 +2595,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextMessageStatus_Error); i {
 			case 0:
 				return &v.state
@@ -3155,7 +2607,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextMessageStatus_Canceled); i {
 			case 0:
 				return &v.state
@@ -3167,7 +2619,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextOperation_InsertMessage); i {
 			case 0:
 				return &v.state
@@ -3179,7 +2631,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[31].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextOperation_UpdateMessage); i {
 			case 0:
 				return &v.state
@@ -3191,7 +2643,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[32].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextOperation_UpdateSummary); i {
 			case 0:
 				return &v.state
@@ -3203,7 +2655,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[33].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextOperation_SlashCommandStarted); i {
 			case 0:
 				return &v.state
@@ -3215,7 +2667,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[34].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextOperation_SlashCommandOutputSectionAdded); i {
 			case 0:
 				return &v.state
@@ -3227,7 +2679,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[35].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[28].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextOperation_SlashCommandCompleted); i {
 			case 0:
 				return &v.state
@@ -3239,7 +2691,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[36].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[29].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextOperation_ThoughtProcessOutputSectionAdded); i {
 			case 0:
 				return &v.state
@@ -3251,7 +2703,7 @@ func file_ai_proto_init() {
 				return nil
 			}
 		}
-		file_ai_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
+		file_ai_proto_msgTypes[30].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ContextOperation_BufferOperation); i {
 			case 0:
 				return &v.state
@@ -3282,14 +2734,14 @@ func file_ai_proto_init() {
 		(*ContextOperation_SlashCommandCompleted_)(nil),
 		(*ContextOperation_ThoughtProcessOutputSectionAdded_)(nil),
 	}
-	file_ai_proto_msgTypes[35].OneofWrappers = []interface{}{}
+	file_ai_proto_msgTypes[28].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_ai_proto_rawDesc,
-			NumEnums:      2,
-			NumMessages:   38,
+			NumEnums:      1,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
