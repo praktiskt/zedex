@@ -3,7 +3,6 @@ package zed
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"log"
 	"net/http"
 
 	"zedex/zed/pb"
@@ -11,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/klauspost/compress/zstd"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -45,7 +44,7 @@ func (rpc *RpcHandler) SendMessage(b []byte) error {
 }
 
 func (rpc *RpcHandler) SendProtobuf(protobuf protoreflect.ProtoMessage) error {
-	logrus.Infof("sending proto %#v", protobuf)
+	log.Infof("sending proto %#v", protobuf)
 	b, err := proto.Marshal(protobuf)
 	if err != nil {
 		return err
@@ -70,7 +69,7 @@ func (rpc *RpcHandler) handleMessages() {
 	for {
 		_, message, err := rpc.websocket.ReadMessage()
 		if err != nil {
-			logrus.Errorf("failed to receive message: %v", err)
+			log.Errorf("failed to receive message: %v", err)
 			return
 		}
 		rpc.handleMessage(message)
@@ -81,15 +80,15 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 	var envelope pb.Envelope
 	err := proto.Unmarshal(message, &envelope)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal message: %v", err)
+		log.Errorf("failed to unmarshal message: %v", err)
 		return err
 	}
 
 	switch msg := envelope.Payload.(type) {
 	case *pb.Envelope_Hello:
-		logrus.Infof("Received hello message: %v", msg)
+		log.Debugf("Received hello message: %v", msg)
 	case *pb.Envelope_GetUsers:
-		logrus.Infof("Received get users message: %v", msg)
+		log.Debugf("Received get users message: %v", msg)
 		user := &pb.User{
 			Id:          1,
 			GithubLogin: "anonymous",
@@ -108,7 +107,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 		}
 
 	case *pb.Envelope_GetPrivateUserInfo:
-		logrus.Infof("Received get private users message: %v", msg)
+		log.Debugf("Received get private users message: %v", msg)
 		acceptTos := uint64(1)
 		resp := pb.Envelope{
 			RespondingTo:     &envelope.Id,
@@ -117,7 +116,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				GetPrivateUserInfoResponse: &pb.GetPrivateUserInfoResponse{
 					MetricsId:     "123",
 					Staff:         true,
-					Flags:         []string{"assistant2", "zed-pro", "notebooks", "debugger", "llm-closed-beta"},
+					Flags:         []string{"assistant2", "zed-pro", "notebooks", "debugger", "llm-closed-beta", "agent-stream-edits"},
 					AcceptedTosAt: &acceptTos,
 				},
 			},
@@ -127,7 +126,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 		}
 
 	case *pb.Envelope_AcceptTermsOfService:
-		logrus.Infof("Received TOS message: %v", msg)
+		log.Debugf("Received TOS message: %v", msg)
 		resp := pb.Envelope{
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_AcceptTermsOfServiceResponse{
@@ -140,7 +139,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 
 	case *pb.Envelope_GetNotifications:
 		// TODO: Implement
-		logrus.Infof("Received GetNotifications message: %v", msg)
+		log.Debugf("Received GetNotifications message: %v", msg)
 
 	case *pb.Envelope_GetLlmToken:
 		resp := pb.Envelope{
@@ -156,9 +155,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 		}
 
 	default:
-		logrus.Infof("Received unmapped message: %v", msg)
-		logrus.Infof("Received WebSocket message: %v", string(message))
-		logrus.Infof("Received WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
+		log.Infof("Received unmapped WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
 	}
 	return nil
 }
@@ -181,7 +178,7 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upgrade connection"})
 		return
 	}
@@ -189,7 +186,7 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 	rpc.websocket.SetReadLimit(WEBSOCKET_READ_LIMIT)
 	go rpc.handleMessages()
 	if err := rpc.SendHello(); err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
