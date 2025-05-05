@@ -20,8 +20,9 @@ var serveCmdConfig = struct {
 }{}
 
 var serveCmd = &cobra.Command{
-	Use:  "serve",
-	Args: cobra.ExactArgs(0),
+	Use:    "serve",
+	Args:   cobra.ExactArgs(0),
+	PreRun: func(cmd *cobra.Command, args []string) { manageDefaultFlags() },
 	Run: func(cmd *cobra.Command, args []string) {
 		if !serveCmdConfig.enableLogin {
 			log.Fatalf("zedex does not support login forwarding yet")

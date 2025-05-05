@@ -17,7 +17,8 @@ var getExtensionCmdConfig = struct {
 }{}
 
 var getExtensionCmd = &cobra.Command{
-	Use: "extension",
+	Use:    "extension",
+	PreRun: func(cmd *cobra.Command, args []string) { manageDefaultFlags() },
 	Run: func(cmd *cobra.Command, args []string) {
 		zc := zed.NewZedClient(1)
 		swg := sizedwaitgroup.New(20)

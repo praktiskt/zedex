@@ -17,7 +17,8 @@ var getExtensionIndexCmdConfig = struct {
 }{}
 
 var getExtensionIndexCmd = &cobra.Command{
-	Use: "extension-index",
+	Use:    "extension-index",
+	PreRun: func(cmd *cobra.Command, args []string) { manageDefaultFlags() },
 	Run: func(cmd *cobra.Command, args []string) {
 		zc := zed.NewZedClient(1)
 		extensions, err := zc.GetExtensionsIndex()

@@ -6,13 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var rootCmdConfig = struct {
-	debug bool
-}{}
-
 var rootCmd = &cobra.Command{
-	Use:   "zedex",
-	Short: "Work with Zed extensions.",
+	Use:    "zedex",
+	PreRun: func(cmd *cobra.Command, args []string) { manageDefaultFlags() },
+	Short:  "A self hosted Zed server.",
 }
 
 func Execute() {
@@ -23,5 +20,5 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().BoolVar(&rootCmdConfig.debug, "debug", false, "activate debug logging")
+	rootCmd.PersistentFlags().BoolVar(&baseFlags.debug, "debug", false, "activate debug logging")
 }

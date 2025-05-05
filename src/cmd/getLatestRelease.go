@@ -17,8 +17,9 @@ var getLatestReleaseCmdConfig struct {
 }
 
 var getLatestReleaseCmd = &cobra.Command{
-	Use:   "latest-release",
-	Short: "Get the latest release from zed.dev",
+	Use:    "latest-release",
+	Short:  "Get the latest release from zed.dev",
+	PreRun: func(cmd *cobra.Command, args []string) { manageDefaultFlags() },
 	Run: func(cmd *cobra.Command, args []string) {
 		zc := zed.NewZedClient(1)
 		latestRelease, err := zc.GetLatestZedVersion()
