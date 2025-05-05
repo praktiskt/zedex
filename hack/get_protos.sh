@@ -2,7 +2,7 @@
 
 set -ex
 
-OUTDIR="src/zed/pb"
+OUTDIR="./src/zed/pb"
 ZED_TEMP_DIR="/tmp/zed-repo"
 
 clone_dir() {
@@ -19,12 +19,14 @@ cleanup() {
 
 main() {
 	clone_dir
-	mv $ZED_TEMP_DIR/crates/proto/proto/* ./src/zed/pb/
+	mv $ZED_TEMP_DIR/crates/proto/proto/* "$OUTDIR/"
 	cleanup
-	pushd ./src/zed/pb
+	pushd $OUTDIR
 	PROTOS=$(ls | grep -E '\.proto$')
 	for FILE in $PROTOS; do
-		sed -i '2i option go_package = "./pb";' $FILE
+		if ! grep -q "option go_package" $FILE; then
+			sed -i '2i option go_package = "./pb";' $FILE
+		fi
 	done
 	protoc --go_out=. --go_opt=paths=source_relative *.proto
 	popd
