@@ -1,3 +1,6 @@
+get-protos:
+	bash hack/get_protos.sh
+
 .PHONY=build
 build:
 	sh hack/build.sh
