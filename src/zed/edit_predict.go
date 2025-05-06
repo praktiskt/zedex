@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"regexp"
 	"strings"
 
 	"zedex/llm"
@@ -102,4 +103,8 @@ func replaceEditableRegion(original, replacement string) string {
 		return original
 	}
 	return original[:startIndex] + replacement + original[endIndex+len(EDIT_REGION_END):]
+}
+
+func removeThinkingBlock(s string) string {
+	return regexp.MustCompile(`^<think>.*?</think>\s+?`).ReplaceAllString(s, "")
 }
