@@ -77,6 +77,9 @@ func (c *EditPredictClient) HandleRequest(req EditPredictRequest) (EditPredictRe
 
 	predicted := extractEditableRegion(resp.GetLastResponse())
 	response := replaceEditableRegion(req.InputExcerpt, predicted)
+	response = removeReasoningBlock(response)
+	response = removeCodeBlock(response)
+	logrus.Debug(response)
 
 	epr := EditPredictResponse{
 		RequestId:     uuid.New().String(),
@@ -105,6 +108,20 @@ func replaceEditableRegion(original, replacement string) string {
 	return original[:startIndex] + replacement + original[endIndex+len(EDIT_REGION_END):]
 }
 
-func removeThinkingBlock(s string) string {
+func removeReasoningBlock(s string) string {
 	return regexp.MustCompile(`^<think>.*?</think>\s+?`).ReplaceAllString(s, "")
+}
+
+func removeCodeBlock(s string) string {
+	firstLine := strings.SplitN(s, "\n", 2)
+	if len(firstLine) == 2 && strings.HasPrefix(firstLine[0], "```") {
+		s = firstLine[1]
+	}
+	if strings.HasSuffix(s, "```") {
+		s = s[:len(s)-4]
+	}
+	if strings.HasPrefix(s, " ") {
+		s = s[1:]
+	}
+	return s
 }
