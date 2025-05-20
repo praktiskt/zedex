@@ -116,7 +116,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				GetPrivateUserInfoResponse: &pb.GetPrivateUserInfoResponse{
 					MetricsId:     "123",
 					Staff:         true,
-					Flags:         []string{"assistant2", "zed-pro", "notebooks", "debugger", "llm-closed-beta", "agent-stream-edits"},
+					Flags:         []string{"zed-pro", "notebooks", "debugger", "llm-closed-beta", "thread-auto-capture"},
 					AcceptedTosAt: &acceptTos,
 				},
 			},
