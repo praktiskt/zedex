@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"net/http"
 
+	"zedex/utils"
 	"zedex/zed/pb"
 
 	"github.com/gin-gonic/gin"
@@ -147,6 +148,36 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 			Payload: &pb.Envelope_GetLlmTokenResponse{
 				GetLlmTokenResponse: &pb.GetLlmTokenResponse{
 					Token: "abc123",
+				},
+			},
+		}
+		if err := rpc.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_SubscribeToChannels:
+		resp := pb.Envelope{
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_SubscribeToChannels{
+				SubscribeToChannels: &pb.SubscribeToChannels{},
+			},
+		}
+		if err := rpc.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_CreateChannel:
+		ccr := envelope.Payload.(*pb.Envelope_CreateChannel)
+		channel := pb.Channel{
+			Id:         *proto.Uint64(utils.StringToUin64Hash(ccr.CreateChannel.Name)),
+			Name:       ccr.CreateChannel.Name,
+			Visibility: pb.ChannelVisibility_Public,
+		}
+		resp := pb.Envelope{
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_CreateChannelResponse{
+				CreateChannelResponse: &pb.CreateChannelResponse{
+					Channel: &channel,
 				},
 			},
 		}
