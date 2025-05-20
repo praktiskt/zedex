@@ -235,7 +235,6 @@ func (co *Controller) NativeAppSignin(c *gin.Context) {
 	portStr := c.Query("native_app_port")
 	pubKey := c.Query("native_app_public_key")
 
-	// TODO: Figure out if its V1 or V0 for Zed. The rust crate tries both.
 	enc, err := encryptStringV1(pubKey, "a")
 	if err != nil {
 		logrus.Error(err)
