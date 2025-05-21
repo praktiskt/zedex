@@ -51,7 +51,19 @@ func NewRpcHandler() RpcHandler {
 	}
 }
 
-func (rpc *RpcHandler) CompressMsg(b []byte) ([]byte, error) {
+type ProtoDispatcher struct {
+	rpc    *RpcHandler
+	userId int
+}
+
+func NewProtoDispatcher(rpc *RpcHandler, userId int) *ProtoDispatcher {
+	return &ProtoDispatcher{
+		rpc:    rpc,
+		userId: userId,
+	}
+}
+
+func (pd *ProtoDispatcher) CompressMsg(b []byte) ([]byte, error) {
 	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel((ZSTD_COMPRESSION_LEVEL)))
 	if err != nil {
 		return []byte{}, err
@@ -59,27 +71,27 @@ func (rpc *RpcHandler) CompressMsg(b []byte) ([]byte, error) {
 	return encoder.EncodeAll(b, make([]byte, 0, len(b))), nil
 }
 
-func (rpc *RpcHandler) SendMessage(connId int, b []byte) error {
-	bb, err := rpc.CompressMsg(b)
+func (pd *ProtoDispatcher) SendMessage(b []byte) error {
+	bb, err := pd.CompressMsg(b)
 	if err != nil {
 		return err
 	}
-	if err := rpc.sockets.Get(connId).WriteMessage(websocket.BinaryMessage, bb); err != nil {
+	if err := pd.rpc.sockets.Get(pd.userId).WriteMessage(websocket.BinaryMessage, bb); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (rpc *RpcHandler) SendProtobuf(connId int, protobuf protoreflect.ProtoMessage) error {
+func (pd *ProtoDispatcher) SendProtobuf(protobuf protoreflect.ProtoMessage) error {
 	log.Infof("sending proto %#v", protobuf)
 	b, err := proto.Marshal(protobuf)
 	if err != nil {
 		return err
 	}
-	return rpc.SendMessage(connId, b)
+	return pd.SendMessage(b)
 }
 
-func (rpc *RpcHandler) SendHello(connId int) error {
+func (pd *ProtoDispatcher) SendHello() error {
 	helloMsg := &pb.Hello{
 		PeerId: &pb.PeerId{Id: 1},
 	}
@@ -89,21 +101,21 @@ func (rpc *RpcHandler) SendHello(connId int) error {
 			Hello: helloMsg,
 		},
 	}
-	return rpc.SendProtobuf(connId, &envelope)
+	return pd.SendProtobuf(&envelope)
 }
 
-func (rpc *RpcHandler) handleMessages(connId int) {
+func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
 	for {
-		_, message, err := rpc.sockets.Get(connId).ReadMessage()
+		_, message, err := rpc.sockets.Get(pd.userId).ReadMessage()
 		if err != nil {
 			log.Errorf("failed to receive message: %v", err)
 			return
 		}
-		rpc.handleMessage(connId, message)
+		rpc.handleMessage(pd, message)
 	}
 }
 
-func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
+func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error {
 	var envelope pb.Envelope
 	err := proto.Unmarshal(message, &envelope)
 	if err != nil {
@@ -138,7 +150,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -154,7 +166,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -173,7 +185,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -202,7 +214,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -221,7 +233,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				AcceptTermsOfServiceResponse: &pb.AcceptTermsOfServiceResponse{},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -239,7 +251,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -252,7 +264,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -263,7 +275,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				SubscribeToChannels: &pb.SubscribeToChannels{},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -282,7 +294,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -296,7 +308,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -310,7 +322,7 @@ func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(connId, &resp); err != nil {
+		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
@@ -364,7 +376,7 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 	}
 
 	connIdStr := strings.Split(auth, " ")[0]
-	connId, err := strconv.Atoi(connIdStr)
+	userId, err := strconv.Atoi(connIdStr)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -377,10 +389,11 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upgrade connection"})
 		return
 	}
-	rpc.sockets.Set(connId, conn)
-	rpc.sockets.Get(connId).SetReadLimit(WEBSOCKET_READ_LIMIT)
-	go rpc.handleMessages(connId)
-	if err := rpc.SendHello(connId); err != nil {
+	rpc.sockets.Set(userId, conn)
+	rpc.sockets.Get(userId).SetReadLimit(WEBSOCKET_READ_LIMIT)
+	pd := NewProtoDispatcher(rpc, userId)
+	go rpc.handleMessages(pd)
+	if err := pd.SendHello(); err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
