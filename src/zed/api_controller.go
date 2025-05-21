@@ -7,6 +7,8 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"math"
+	mrand "math/rand"
 	"os"
 	"path"
 	"strconv"
@@ -30,6 +32,7 @@ type Controller struct {
 	enableReleaseNotes   bool
 
 	editPredictClient EditPredictClient
+	rpcHandler        RpcHandler
 }
 
 func NewController(
@@ -64,6 +67,7 @@ RULES:
 		enableReleaseNotes:   enableReleaseNotes,
 		port:                 port,
 		editPredictClient:    NewEditPredictClient(*oai),
+		rpcHandler:           NewRpcHandler(),
 	}
 }
 
@@ -247,7 +251,8 @@ func (co *Controller) NativeAppSignin(c *gin.Context) {
 
 	// user_id must be numeric, possibly a reference to github id
 	// https://api.github.com/users/<user>
-	host := fmt.Sprintf("http://127.0.0.1:%s/native_app_signin?user_id=1&access_token=%s", portStr, enc)
+	uid := mrand.Intn(math.MaxInt)
+	host := fmt.Sprintf("http://127.0.0.1:%s/native_app_signin?user_id=%v&access_token=%s", portStr, uid, enc)
 	c.Redirect(302, host)
 }
 
@@ -271,8 +276,7 @@ func (co *Controller) HandleRpcRequest(c *gin.Context) {
 
 // https://github.com/zed-industries/zed/blob/1e22faebc9f9c8da685a34b15c17f2bc2b418b26/crates/collab/src/rpc.rs#L1092
 func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
-	rpc := RpcHandler{}
-	rpc.HandleRequest(c)
+	co.rpcHandler.HandleRequest(c)
 }
 
 func (co *Controller) HandleEditPredictRequest(c *gin.Context) {

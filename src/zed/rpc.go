@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"zedex/utils"
@@ -13,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/klauspost/compress/zstd"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -24,14 +27,28 @@ const (
 )
 
 var (
-	USERS            = utils.NewConcurrentMap[uint64, string]()
+	USERS            = utils.NewConcurrentMap[uint64, *pb.User]()
 	CHANNEL_MEMBERS  = utils.NewConcurrentMap[uint64, []*pb.ChannelMember]()
 	CHANNEL_MESSAGES = utils.NewConcurrentMap[uint64, []*pb.ChannelMessage]()
 	NAMES            = namegenerator.NewGenerator()
 )
 
 type RpcHandler struct {
-	websocket *websocket.Conn
+	sockets         utils.ConcurrentMap[int, *websocket.Conn]
+	users           utils.ConcurrentMap[uint64, *pb.User]
+	channelMembers  utils.ConcurrentMap[uint64, []*pb.ChannelMember]
+	channelMessages utils.ConcurrentMap[uint64, []*pb.ChannelMessage]
+	nameGenerator   namegenerator.NameGenerator
+}
+
+func NewRpcHandler() RpcHandler {
+	return RpcHandler{
+		sockets:         utils.NewConcurrentMap[int, *websocket.Conn](),
+		users:           utils.NewConcurrentMap[uint64, *pb.User](),
+		channelMembers:  utils.NewConcurrentMap[uint64, []*pb.ChannelMember](),
+		channelMessages: utils.NewConcurrentMap[uint64, []*pb.ChannelMessage](),
+		nameGenerator:   namegenerator.NewGenerator(),
+	}
 }
 
 func (rpc *RpcHandler) CompressMsg(b []byte) ([]byte, error) {
@@ -42,27 +59,27 @@ func (rpc *RpcHandler) CompressMsg(b []byte) ([]byte, error) {
 	return encoder.EncodeAll(b, make([]byte, 0, len(b))), nil
 }
 
-func (rpc *RpcHandler) SendMessage(b []byte) error {
+func (rpc *RpcHandler) SendMessage(connId int, b []byte) error {
 	bb, err := rpc.CompressMsg(b)
 	if err != nil {
 		return err
 	}
-	if err := rpc.websocket.WriteMessage(websocket.BinaryMessage, bb); err != nil {
+	if err := rpc.sockets.Get(connId).WriteMessage(websocket.BinaryMessage, bb); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (rpc *RpcHandler) SendProtobuf(protobuf protoreflect.ProtoMessage) error {
+func (rpc *RpcHandler) SendProtobuf(connId int, protobuf protoreflect.ProtoMessage) error {
 	log.Infof("sending proto %#v", protobuf)
 	b, err := proto.Marshal(protobuf)
 	if err != nil {
 		return err
 	}
-	return rpc.SendMessage(b)
+	return rpc.SendMessage(connId, b)
 }
 
-func (rpc *RpcHandler) SendHello() error {
+func (rpc *RpcHandler) SendHello(connId int) error {
 	helloMsg := &pb.Hello{
 		PeerId: &pb.PeerId{Id: 1},
 	}
@@ -72,21 +89,21 @@ func (rpc *RpcHandler) SendHello() error {
 			Hello: helloMsg,
 		},
 	}
-	return rpc.SendProtobuf(&envelope)
+	return rpc.SendProtobuf(connId, &envelope)
 }
 
-func (rpc *RpcHandler) handleMessages() {
+func (rpc *RpcHandler) handleMessages(connId int) {
 	for {
-		_, message, err := rpc.websocket.ReadMessage()
+		_, message, err := rpc.sockets.Get(connId).ReadMessage()
 		if err != nil {
 			log.Errorf("failed to receive message: %v", err)
 			return
 		}
-		rpc.handleMessage(message)
+		rpc.handleMessage(connId, message)
 	}
 }
 
-func (rpc *RpcHandler) handleMessage(message []byte) error {
+func (rpc *RpcHandler) handleMessage(connId int, message []byte) error {
 	var envelope pb.Envelope
 	err := proto.Unmarshal(message, &envelope)
 	if err != nil {
@@ -104,14 +121,15 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 		ru := []*pb.User{}
 		for _, uid := range gu.GetUsers.UserIds {
 			if !USERS.Exists(uid) {
-				USERS.Set(uid, NAMES.Generate())
+				u := &pb.User{
+					Id:          uid,
+					GithubLogin: NAMES.Generate(),
+				}
+				USERS.Set(uid, u)
 			}
-			u := pb.User{
-				Id:          uid,
-				GithubLogin: USERS.Get(uid),
-			}
-			ru = append(ru, &u)
+			ru = append(ru, USERS.Get(uid))
 		}
+		logrus.Debugf("current users: %#v", USERS.Map())
 		resp := pb.Envelope{
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_UsersResponse{
@@ -120,15 +138,13 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
 	case *pb.Envelope_GetPrivateUserInfo:
-		log.Debugf("Received get private users message: %v", msg)
 		resp := pb.Envelope{
-			RespondingTo:     &envelope.Id,
-			OriginalSenderId: &pb.PeerId{Id: 2},
+			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_GetPrivateUserInfoResponse{
 				GetPrivateUserInfoResponse: &pb.GetPrivateUserInfoResponse{
 					MetricsId:     "123",
@@ -138,32 +154,12 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
-			return err
-		}
-
-		resp = pb.Envelope{
-			// RespondingTo:     &envelope.Id,
-			// OriginalSenderId: &pb.PeerId{Id: 1},
-			Payload: &pb.Envelope_AddNotification{
-				AddNotification: &pb.AddNotification{
-					Notification: &pb.Notification{
-						Id:        1,
-						Timestamp: uint64(time.Now().Unix()),
-						Kind:      `ChannelMessageMention`,
-						IsRead:    false,
-						Content:   `{"sender_id": 1, "entity_id": 1, "channel_id": 1}`,
-						Response:  proto.Bool(false),
-					},
-				},
-			},
-		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
 	case *pb.Envelope_GetChannelMessagesById:
-		ids := envelope.Payload.(*pb.Envelope_GetChannelMessagesById).GetChannelMessagesById.MessageIds
+		ids := msg.GetChannelMessagesById.MessageIds
 		msgs := []*pb.ChannelMessage{}
 		for _, id := range ids {
 			msgs = append(msgs, CHANNEL_MESSAGES.Get(id)...)
@@ -177,12 +173,12 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
 	case *pb.Envelope_SendChannelMessage:
-		scm := envelope.Payload.(*pb.Envelope_SendChannelMessage).SendChannelMessage
+		scm := msg.SendChannelMessage
 		channelMsg := &pb.ChannelMessage{
 			Id:               uint64(time.Now().UnixNano()),
 			Body:             scm.Body,
@@ -206,7 +202,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
@@ -225,7 +221,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				AcceptTermsOfServiceResponse: &pb.AcceptTermsOfServiceResponse{},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
@@ -234,10 +230,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 		log.Debugf("Received GetNotifications message: %v", msg)
 
 	case *pb.Envelope_FuzzySearchUsers:
-		ru := []*pb.User{}
-		for uid, name := range USERS.Map() {
-			ru = append(ru, &pb.User{Id: uid, GithubLogin: name})
-		}
+		ru := USERS.Values()
 		resp := pb.Envelope{
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_UsersResponse{
@@ -246,7 +239,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
@@ -259,7 +252,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
@@ -270,15 +263,15 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				SubscribeToChannels: &pb.SubscribeToChannels{},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
 	case *pb.Envelope_CreateChannel:
-		ccr := envelope.Payload.(*pb.Envelope_CreateChannel)
+		ccr := msg.CreateChannel
 		channel := pb.Channel{
-			Id:         *proto.Uint64(utils.StringToUInt64Hash(ccr.CreateChannel.Name)),
-			Name:       ccr.CreateChannel.Name,
+			Id:         *proto.Uint64(utils.StringToUInt64Hash(ccr.Name)),
+			Name:       ccr.Name,
 			Visibility: pb.ChannelVisibility_Public,
 		}
 		resp := pb.Envelope{
@@ -289,28 +282,26 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
 	case *pb.Envelope_JoinChannelChat:
+		jcc := msg.JoinChannelChat
 		resp := pb.Envelope{
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_JoinChannelChatResponse{
 				JoinChannelChatResponse: &pb.JoinChannelChatResponse{
-					Messages: []*pb.ChannelMessage{
-						{Timestamp: uint64(time.Now().Unix()), Id: 1, Body: "Hello", SenderId: 1, Nonce: &pb.Nonce{UpperHalf: 0, LowerHalf: 2}},
-					},
-					Done: true,
+					Messages: CHANNEL_MESSAGES.Get(jcc.ChannelId),
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
 	case *pb.Envelope_GetChannelMembers:
-		gcm := envelope.Payload.(*pb.Envelope_GetChannelMembers).GetChannelMembers
+		gcm := msg.GetChannelMembers
 		resp := pb.Envelope{
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_GetChannelMembersResponse{
@@ -319,12 +310,12 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 				},
 			},
 		}
-		if err := rpc.SendProtobuf(&resp); err != nil {
+		if err := rpc.SendProtobuf(connId, &resp); err != nil {
 			return err
 		}
 
 	case *pb.Envelope_InviteChannelMember:
-		req := envelope.Payload.(*pb.Envelope_InviteChannelMember).InviteChannelMember
+		req := msg.InviteChannelMember
 		CHANNEL_MEMBERS.Transaction(req.UserId, func(m *utils.ConcurrentMap[uint64, []*pb.ChannelMember]) {
 			currentMembers := m.GetUnsafe(req.ChannelId)
 			currentMembers = append(currentMembers, &pb.ChannelMember{UserId: req.UserId, Kind: pb.ChannelMember_Member, Role: pb.ChannelRole_Admin})
@@ -339,7 +330,7 @@ func (rpc *RpcHandler) handleMessage(message []byte) error {
 		// 		JoinChannelChatResponse: &pb.JoinChannelChatResponse{},
 		// 	},
 		// }
-		// if err := rpc.SendProtobuf(&resp); err != nil {
+		// if err := rpc.SendProtobuf(connId, &resp); err != nil {
 		// 	return err
 		// }
 
@@ -365,16 +356,31 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 	c.Request.Header.Add("Sec-WebSocket-Version", "13")
 	c.Request.Header.Add("Sec-WebSocket-Key", rpc.generateWebSocketKey())
 
+	auth := c.Request.Header.Get("Authorization")
+	if len(strings.Split(auth, " ")) != 2 {
+		log.Error("failed to get stuff from auth header")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get stuff from auth header"})
+		return
+	}
+
+	connIdStr := strings.Split(auth, " ")[0]
+	connId, err := strconv.Atoi(connIdStr)
+	if err != nil {
+		log.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upgrade connection"})
 		return
 	}
-	rpc.websocket = conn
-	rpc.websocket.SetReadLimit(WEBSOCKET_READ_LIMIT)
-	go rpc.handleMessages()
-	if err := rpc.SendHello(); err != nil {
+	rpc.sockets.Set(connId, conn)
+	rpc.sockets.Get(connId).SetReadLimit(WEBSOCKET_READ_LIMIT)
+	go rpc.handleMessages(connId)
+	if err := rpc.SendHello(connId); err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
