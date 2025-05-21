@@ -43,7 +43,7 @@ func (m *ConcurrentMap[A, B]) Delete(k A) {
 	delete(m.m, k)
 }
 
-func (m *ConcurrentMap[A, B]) Transaction(k A, f func(m *ConcurrentMap[A, B])) {
+func (m *ConcurrentMap[A, B]) Transaction(f func(m *ConcurrentMap[A, B])) {
 	m.l.Lock()
 	defer m.l.Unlock()
 	f(m)
@@ -60,6 +60,11 @@ func (m *ConcurrentMap[A, B]) Pop(k A) B {
 func (m *ConcurrentMap[A, B]) Exists(k A) bool {
 	m.l.Lock()
 	defer m.l.Unlock()
+	_, exists := m.m[k]
+	return exists
+}
+
+func (m *ConcurrentMap[A, B]) ExistsUnsafe(k A) bool {
 	_, exists := m.m[k]
 	return exists
 }
