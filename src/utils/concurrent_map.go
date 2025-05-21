@@ -35,6 +35,12 @@ func (m *ConcurrentMap[A, B]) Delete(k A) {
 	delete(m.m, k)
 }
 
+func (m *ConcurrentMap[A, B]) Update(k A, f func(*ConcurrentMap[A, B])) {
+	m.l.Lock()
+	defer m.l.Unlock()
+	f(m)
+}
+
 func (m *ConcurrentMap[A, B]) Pop(k A) B {
 	m.l.Lock()
 	defer m.l.Unlock()
