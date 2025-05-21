@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 )
 
-func StringToUin64Hash(s string) uint64 {
+func StringToUInt64Hash(s string) uint64 {
 	hash := md5.New()
 	if _, err := hash.Write([]byte(s)); err != nil {
 		return 0

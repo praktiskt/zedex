@@ -29,13 +29,21 @@ func (m *ConcurrentMap[A, B]) Get(k A) B {
 	return m.m[k]
 }
 
+func (m *ConcurrentMap[A, B]) GetUnsafe(k A) B {
+	return m.m[k]
+}
+
+func (m *ConcurrentMap[A, B]) SetUnsafe(k A, v B) {
+	m.m[k] = v
+}
+
 func (m *ConcurrentMap[A, B]) Delete(k A) {
 	m.l.Lock()
 	defer m.l.Unlock()
 	delete(m.m, k)
 }
 
-func (m *ConcurrentMap[A, B]) Update(k A, f func(*ConcurrentMap[A, B])) {
+func (m *ConcurrentMap[A, B]) Transaction(k A, f func(m *ConcurrentMap[A, B])) {
 	m.l.Lock()
 	defer m.l.Unlock()
 	f(m)
