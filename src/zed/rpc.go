@@ -31,6 +31,7 @@ type RpcHandler struct {
 	channels        utils.ConcurrentMap[uint64, *pb.Channel]
 	channelMembers  utils.ConcurrentMap[uint64, []*pb.ChannelMember]
 	channelMessages utils.ConcurrentMap[uint64, []*pb.ChannelMessage]
+	id              utils.ConcurrentCounter[uint32]
 	nameGenerator   namegenerator.NameGenerator
 }
 
@@ -41,6 +42,7 @@ func NewRpcHandler() RpcHandler {
 		channels:        utils.NewConcurrentMap[uint64, *pb.Channel](),
 		channelMembers:  utils.NewConcurrentMap[uint64, []*pb.ChannelMember](),
 		channelMessages: utils.NewConcurrentMap[uint64, []*pb.ChannelMessage](),
+		id:              utils.NewConcurrentCounter[uint32](),
 		nameGenerator:   namegenerator.NewGenerator(),
 	}
 }
@@ -48,6 +50,7 @@ func NewRpcHandler() RpcHandler {
 type ProtoDispatcher struct {
 	rpc    *RpcHandler
 	userId int
+	peerId *pb.PeerId
 }
 
 func NewProtoDispatcher(rpc *RpcHandler, userId int) *ProtoDispatcher {
@@ -93,7 +96,16 @@ func (pd *ProtoDispatcher) SendHello() error {
 			},
 		},
 	}
+
 	return pd.SendProtobuf(&envelope)
+}
+
+func (rpc *RpcHandler) NextId() uint32 {
+	return rpc.id.Increment().Value()
+}
+
+func (pd *ProtoDispatcher) NextId() uint32 {
+	return pd.rpc.NextId()
 }
 
 func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
@@ -120,6 +132,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 	switch msg := envelope.Payload.(type) {
 	case *pb.Envelope_Hello:
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_UpdateChannels{
 				UpdateChannels: &pb.UpdateChannels{
@@ -138,6 +151,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			ru = append(ru, rpc.users.Get(uid))
 		}
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_UsersResponse{
 				UsersResponse: &pb.UsersResponse{
@@ -172,6 +186,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			msgs = append(msgs, rpc.channelMessages.Get(id)...)
 		}
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_GetChannelMessagesResponse{
 				GetChannelMessagesResponse: &pb.GetChannelMessagesResponse{
@@ -201,6 +216,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		})
 
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_SendChannelMessageResponse{
 				SendChannelMessageResponse: &pb.SendChannelMessageResponse{
@@ -221,6 +237,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 	case *pb.Envelope_JoinChannelBuffer:
 		log.Debug("Envelope_JoinChannelBuffer")
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_JoinChannelBuffer{
 				JoinChannelBuffer: &pb.JoinChannelBuffer{
@@ -234,6 +251,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 
 	case *pb.Envelope_AcceptTermsOfService:
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_AcceptTermsOfServiceResponse{
 				AcceptTermsOfServiceResponse: &pb.AcceptTermsOfServiceResponse{},
@@ -249,6 +267,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 	case *pb.Envelope_FuzzySearchUsers:
 		ru := rpc.users.Values()
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_UsersResponse{
 				UsersResponse: &pb.UsersResponse{
@@ -262,6 +281,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 
 	case *pb.Envelope_GetLlmToken:
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_GetLlmTokenResponse{
 				GetLlmTokenResponse: &pb.GetLlmTokenResponse{
@@ -291,6 +311,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		})
 
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_CreateChannelResponse{
 				CreateChannelResponse: &pb.CreateChannelResponse{
@@ -305,6 +326,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 	case *pb.Envelope_JoinChannelChat:
 		jcc := msg.JoinChannelChat
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_JoinChannelChatResponse{
 				JoinChannelChatResponse: &pb.JoinChannelChatResponse{
@@ -319,6 +341,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 	case *pb.Envelope_GetChannelMembers:
 		gcm := msg.GetChannelMembers
 		resp := pb.Envelope{
+			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_GetChannelMembersResponse{
 				GetChannelMembersResponse: &pb.GetChannelMembersResponse{
@@ -349,7 +372,6 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		// if err := rpc.SendProtobuf(connId, &resp); err != nil {
 		// 	return err
 		// }
-
 	default:
 		log.Infof("Received unmapped WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
 	}
