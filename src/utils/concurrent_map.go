@@ -43,10 +43,10 @@ func (m *ConcurrentMap[A, B]) Delete(k A) {
 	delete(m.m, k)
 }
 
-func (m *ConcurrentMap[A, B]) Transaction(f func(m *ConcurrentMap[A, B])) {
+func (m *ConcurrentMap[A, B]) Transaction(f func(m map[A]B) map[A]B) {
 	m.l.Lock()
 	defer m.l.Unlock()
-	f(m)
+	m.m = f(m.Map())
 }
 
 func (m *ConcurrentMap[A, B]) Pop(k A) B {

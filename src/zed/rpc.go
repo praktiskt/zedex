@@ -209,10 +209,9 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			ReplyToMessageId: scm.ReplyToMessageId,
 		}
 
-		rpc.channelMessages.Transaction(func(m *utils.ConcurrentMap[uint64, []*pb.ChannelMessage]) {
-			currentMessages := m.GetUnsafe(scm.ChannelId)
-			currentMessages = append(currentMessages, channelMsg)
-			m.SetUnsafe(scm.ChannelId, currentMessages)
+		rpc.channelMessages.Transaction(func(m map[uint64][]*pb.ChannelMessage) map[uint64][]*pb.ChannelMessage {
+			m[scm.ChannelId] = append(m[scm.ChannelId], channelMsg)
+			return m
 		})
 
 		resp := pb.Envelope{
@@ -304,10 +303,11 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			Visibility: pb.ChannelVisibility_Public,
 		}
 
-		rpc.channels.Transaction(func(m *utils.ConcurrentMap[uint64, *pb.Channel]) {
-			if !m.ExistsUnsafe(channel.Id) {
-				m.SetUnsafe(channel.Id, channel)
+		rpc.channels.Transaction(func(m map[uint64]*pb.Channel) map[uint64]*pb.Channel {
+			if _, ok := m[channel.Id]; !ok {
+				m[channel.Id] = channel
 			}
+			return m
 		})
 
 		resp := pb.Envelope{
@@ -355,10 +355,9 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 
 	case *pb.Envelope_InviteChannelMember:
 		req := msg.InviteChannelMember
-		rpc.channelMembers.Transaction(func(m *utils.ConcurrentMap[uint64, []*pb.ChannelMember]) {
-			currentMembers := m.GetUnsafe(req.ChannelId)
-			currentMembers = append(currentMembers, &pb.ChannelMember{UserId: req.UserId, Kind: pb.ChannelMember_Member, Role: pb.ChannelRole_Admin})
-			m.SetUnsafe(req.UserId, currentMembers)
+		rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
+			m[req.UserId] = append(m[req.UserId], &pb.ChannelMember{UserId: req.UserId, Kind: pb.ChannelMember_Member, Role: pb.ChannelRole_Admin})
+			return m
 		})
 
 	case *pb.Envelope_JoinChannel:
