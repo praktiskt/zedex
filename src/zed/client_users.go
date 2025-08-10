@@ -42,7 +42,8 @@ type AcceptTermsOfServiceResponse struct {
 }
 
 type LlmToken struct {
-	Token string `json:"token"`
+	Token                  string `json:"token"`
+	SupportsEditPrediction bool   `json:"supports_edit_prediction"`
 }
 
 type CreateLlmTokenResponse struct {
@@ -122,7 +123,8 @@ func NewGetAuthenticatedUsersResponse() GetAuthenticatedUserResponse {
 func NewLLMToken() CreateLlmTokenResponse {
 	return CreateLlmTokenResponse{
 		Token: LlmToken{
-			Token: "le-token",
+			Token:                  "le-token",
+			SupportsEditPrediction: true,
 		},
 	}
 }
