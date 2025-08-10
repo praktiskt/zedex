@@ -42,9 +42,10 @@ Modify the Zed-settings file (`settings.json`) to use the proxy:
 }
 ```
 
-### Configuring an OpenAI-compatible backend
-In order to use this, you must be logged into Zed (edit prediction is login-gated by the Zed client). `zedex` supports an anonymous login which does the trick.
+## Edit Prediction
+In order to use this, you must be logged into Zed (edit prediction is login-gated by the Zed client). `zedex` supports an anonymous login which does the trick. You can also use the real login and just set `ZED_PREDICT_EDITS_URL`.
 
+### Zedex configuration
 Running `zedex` with `--enable-edit-prediction` (default) allows you to configure an OpenAI compatible backend to manage your requests. Set the following environment variables if you wish;
 ```sh
 # If you do not want to use edit prediction, you can disable it.
@@ -60,6 +61,14 @@ export OPENAI_COMPATIBLE_MODEL="name of the model to use"
 ```
 
 The default for zedex is to use [Groq](https://groq.com/).
+
+### Client configuration
+You have two options;
+* Logging in to `zedex` (just click login if you've set `server_url`).
+
+OR
+
+* Set environment variable `ZED_PREDICT_EDITS_URL=http://localhost:8080/predict_edits/v2` and run Zed.
 
 ## Building
 
