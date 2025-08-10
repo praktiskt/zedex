@@ -73,5 +73,9 @@ func (api *API) Router() *gin.Engine {
 	})
 
 	router.POST("/predict_edits/v2", controller.HandleEditPredictRequest)
+
+	router.GET("/client/users/me", func(c *gin.Context) {
+		c.JSON(200, NewGetAuthenticatedUsersResponse())
+	})
 	return router
 }
