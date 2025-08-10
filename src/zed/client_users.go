@@ -118,3 +118,11 @@ func NewGetAuthenticatedUsersResponse() GetAuthenticatedUserResponse {
 		},
 	}
 }
+
+func NewLLMToken() CreateLlmTokenResponse {
+	return CreateLlmTokenResponse{
+		Token: LlmToken{
+			Token: "le-token",
+		},
+	}
+}
