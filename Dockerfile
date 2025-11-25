@@ -1,4 +1,4 @@
-FROM golang:1.23.3-alpine AS builder
+FROM golang:1.24-alpine AS builder
 RUN apk update && apk add make git &&\
     rm -rf /var/cache/apk/*
 WORKDIR /app
