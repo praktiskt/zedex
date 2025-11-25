@@ -51,6 +51,8 @@ func (api *API) Router() *gin.Engine {
 	router.GET("/extensions/:id/download", controller.DownloadExtension)
 	router.GET("/extensions/:id/:version/download", controller.DownloadExtension)
 
+	router.GET("/releases/stable/latest/asset", controller.LatestVersion)
+
 	router.GET("/api/*path", func(c *gin.Context) {
 		if c.Request.URL.Path == "/api/releases/latest" && api.enableReleases {
 			controller.LatestVersion(c)
