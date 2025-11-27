@@ -82,5 +82,7 @@ func (api *API) Router() *gin.Engine {
 	router.GET("/client/users/me", func(c *gin.Context) {
 		c.JSON(200, NewGetAuthenticatedUsersResponse())
 	})
+
+	router.GET("/account", controller.Account)
 	return router
 }

@@ -268,6 +268,18 @@ func (co *Controller) NativeAppSigninSucceeded(c *gin.Context) {
 	)
 }
 
+func (co *Controller) Account(c *gin.Context) {
+	c.Data(200,
+		"text/html; charset=utf-8",
+		[]byte(`<html>
+		<body style="background-color: #1e1e2e; color: #ffffff; text-align: center; display: flex; justify-content: center; align-items: center">
+			<p>You are logged in anonymously with Zedex.</p>
+		</body>
+		</html>`,
+		),
+	)
+}
+
 func (co *Controller) HandleRpcRequest(c *gin.Context) {
 	baseURL := utils.EnvWithFallback("BASE_URL", fmt.Sprintf("http://127.0.0.1:%v", co.port))
 	location := fmt.Sprintf("%s/handle-rpc", baseURL)
