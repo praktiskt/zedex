@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"encoding/base64"
 	"net/http"
 	"strconv"
@@ -31,8 +32,28 @@ const (
 // zstdMagic is the frame marker of a zstd stream (RFC 8878).
 var zstdMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
 
+// socket wraps a websocket connection with a write mutex. Gorilla websocket
+// does not allow concurrent writers, and zedex writes to a socket from
+// several goroutines (message handlers, broadcasts).
+type socket struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+func (s *socket) write(msgType int, data []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conn.WriteMessage(msgType, data)
+}
+
+func (s *socket) writeCompressed(data []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conn.WriteMessage(websocket.BinaryMessage, data)
+}
+
 type RpcHandler struct {
-	sockets         utils.ConcurrentMap[int, *websocket.Conn]
+	sockets         utils.ConcurrentMap[int, *socket]
 	users           utils.ConcurrentMap[uint64, *pb.User]
 	channels        utils.ConcurrentMap[uint64, *pb.Channel]
 	channelMembers  utils.ConcurrentMap[uint64, []*pb.ChannelMember]
@@ -177,7 +198,7 @@ func (s *channelBufferState) snapshot() (string, uint64, []*pb.Operation, []*pb.
 
 func NewRpcHandler() RpcHandler {
 	return RpcHandler{
-		sockets:         utils.NewConcurrentMap[int, *websocket.Conn](),
+		sockets:         utils.NewConcurrentMap[int, *socket](),
 		users:           utils.NewConcurrentMap[uint64, *pb.User](),
 		channels:        utils.NewConcurrentMap[uint64, *pb.Channel](),
 		channelMembers:  utils.NewConcurrentMap[uint64, []*pb.ChannelMember](),
@@ -214,7 +235,7 @@ func (pd *ProtoDispatcher) SendMessage(b []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := pd.rpc.sockets.Get(pd.userId).WriteMessage(websocket.BinaryMessage, bb); err != nil {
+	if err := pd.rpc.sockets.Get(pd.userId).writeCompressed(bb); err != nil {
 		return err
 	}
 	return nil
@@ -372,13 +393,26 @@ func CanonicalUserID(id uint64) uint64 {
 }
 
 func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
+	sock := rpc.sockets.Get(pd.userId)
+	conn := sock.conn
 	for {
-		_, message, err := rpc.sockets.Get(pd.userId).ReadMessage()
+		// Read via NextReader + io.Copy instead of ReadMessage: gorilla's
+		// ReadMessage uses io.ReadAll, which panics when a frame is larger
+		// than the connection's internal read buffer.
+		messageType, reader, err := conn.NextReader()
 		if err != nil {
-			log.Errorf("failed to receive message: %v", err)
+			log.Errorf("failed to read message: %v", err)
 			return
 		}
-		decoded, err := DecompressMsg(message)
+		if messageType != websocket.BinaryMessage {
+			continue
+		}
+		var buf bytes.Buffer
+		if _, err := io.Copy(&buf, reader); err != nil {
+			log.Errorf("failed to read message body: %v", err)
+			return
+		}
+		decoded, err := DecompressMsg(buf.Bytes())
 		if err != nil {
 			log.Errorf("failed to decompress message: %v", err)
 			continue
@@ -1081,8 +1115,8 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upgrade connection"})
 		return
 	}
-	rpc.sockets.Set(userId, conn)
-	rpc.sockets.Get(userId).SetReadLimit(WEBSOCKET_READ_LIMIT)
+	rpc.sockets.Set(userId, &socket{conn: conn})
+	rpc.sockets.Get(userId).conn.SetReadLimit(WEBSOCKET_READ_LIMIT)
 
 	// TODO: Transaction
 	if !rpc.users.Exists(uint64(userId)) {
