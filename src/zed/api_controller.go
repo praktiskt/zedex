@@ -387,11 +387,14 @@ func (co *Controller) AuthenticatedUser(c *gin.Context) {
 	auth := c.Request.Header.Get("Authorization")
 	parts := strings.Split(auth, " ")
 	if len(parts) > 0 && parts[0] != "" {
-		if uid, err := strconv.ParseInt(parts[0], 10, 32); err == nil {
-			resp.User.LegacyUserID = int(uid)
-			resp.User.IDV2 = strconv.FormatInt(uid, 10)
-			resp.User.Username = "user_" + strconv.FormatInt(uid, 10)
-			resp.User.GithubLogin = "user_" + strconv.FormatInt(uid, 10)
+		if uid, err := strconv.ParseUint(parts[0], 10, 64); err == nil {
+			// Zed models legacy_user_id as i32 and truncates credentials to u32,
+			// so mirror that here to stay within the range Zed can parse.
+			legacy := int32(uid & 0x7fffffff)
+			resp.User.LegacyUserID = int(legacy)
+			resp.User.IDV2 = strconv.FormatInt(int64(legacy), 10)
+			resp.User.Username = "user_" + strconv.FormatInt(int64(legacy), 10)
+			resp.User.GithubLogin = "user_" + strconv.FormatInt(int64(legacy), 10)
 		}
 	}
 	c.JSON(200, resp)
