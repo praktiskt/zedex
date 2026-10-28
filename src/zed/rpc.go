@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"encoding/base64"
@@ -27,6 +28,9 @@ const (
 	WEBSOCKET_READ_LIMIT   = 1024 * 1024
 )
 
+// zstdMagic is the frame marker of a zstd stream (RFC 8878).
+var zstdMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
+
 type RpcHandler struct {
 	sockets         utils.ConcurrentMap[int, *websocket.Conn]
 	users           utils.ConcurrentMap[uint64, *pb.User]
@@ -40,13 +44,135 @@ type RpcHandler struct {
 
 
 
+// channelBufferState holds the shared state of a channel's notes buffer.
+//
+// Zed's channel notes use a CRDT: every client owns a replica id and sends
+// operations that carry a version vector. The server keeps the operation
+// history so that clients joining later can rebuild the same state, and
+// relays operations to the other collaborators of the channel.
 type channelBufferState struct {
 	mu            sync.Mutex
 	baseText      string
 	epoch         uint64
 	operations    []*pb.Operation
 	version       []*pb.VectorClockEntry
-	collaborators []uint64
+	collaborators map[uint64]*pb.Collaborator
+	nextReplicaId uint32
+}
+
+// FIRST_COLLAB_ID mirrors clock::ReplicaId::FIRST_COLLAB_ID: replica ids below
+// this value are reserved for local/agent/remote-server use.
+const FIRST_COLLAB_ID = 8
+
+func newChannelBufferState() *channelBufferState {
+	return &channelBufferState{
+		baseText:      "",
+		epoch:         1,
+		operations:    []*pb.Operation{},
+		version:       []*pb.VectorClockEntry{},
+		collaborators: map[uint64]*pb.Collaborator{},
+		nextReplicaId: FIRST_COLLAB_ID,
+	}
+}
+
+// addCollaborator registers a user in the buffer and assigns it a unique
+// replica id, returning the collaborator entry.
+func (s *channelBufferState) addCollaborator(userId uint64, peerId *pb.PeerId) *pb.Collaborator {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if existing, ok := s.collaborators[userId]; ok {
+		return existing
+	}
+	replicaId := s.nextReplicaId
+	s.nextReplicaId++
+	collaborator := &pb.Collaborator{
+		PeerId:    peerId,
+		ReplicaId: replicaId,
+		UserId:    userId,
+	}
+	s.collaborators[userId] = collaborator
+	return collaborator
+}
+
+func (s *channelBufferState) removeCollaborator(userId uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.collaborators, userId)
+}
+
+func (s *channelBufferState) collaboratorList() []*pb.Collaborator {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]*pb.Collaborator, 0, len(s.collaborators))
+	for _, c := range s.collaborators {
+		out = append(out, c)
+	}
+	return out
+}
+
+func (s *channelBufferState) collaboratorUserIds() []uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]uint64, 0, len(s.collaborators))
+	for id := range s.collaborators {
+		out = append(out, id)
+	}
+	return out
+}
+
+// recordOperations appends operations to the buffer history and advances the
+// version vector accordingly.
+func (s *channelBufferState) recordOperations(ops []*pb.Operation) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, op := range ops {
+		if op == nil {
+			continue
+		}
+		s.operations = append(s.operations, op)
+		switch v := op.Variant.(type) {
+		case *pb.Operation_Edit_:
+			edit := v.Edit
+			if edit == nil {
+				continue
+			}
+			s.observeVersion(edit.ReplicaId, edit.LamportTimestamp)
+			for _, entry := range edit.Version {
+				s.observeVersion(entry.ReplicaId, entry.Timestamp)
+			}
+		case *pb.Operation_Undo_:
+			undo := v.Undo
+			if undo == nil {
+				continue
+			}
+			s.observeVersion(undo.ReplicaId, undo.LamportTimestamp)
+			for _, entry := range undo.Version {
+				s.observeVersion(entry.ReplicaId, entry.Timestamp)
+			}
+		}
+	}
+}
+
+func (s *channelBufferState) observeVersion(replicaId uint32, timestamp uint32) {
+	for _, entry := range s.version {
+		if entry.ReplicaId == replicaId {
+			if entry.Timestamp < timestamp {
+				entry.Timestamp = timestamp
+			}
+			return
+		}
+	}
+	s.version = append(s.version, &pb.VectorClockEntry{ReplicaId: replicaId, Timestamp: timestamp})
+}
+
+func (s *channelBufferState) snapshot() (string, uint64, []*pb.Operation, []*pb.VectorClockEntry) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ops := make([]*pb.Operation, len(s.operations))
+	copy(ops, s.operations)
+	version := make([]*pb.VectorClockEntry, len(s.version))
+	copy(version, s.version)
+	return s.baseText, s.epoch, ops, version
 }
 
 func NewRpcHandler() RpcHandler {
@@ -131,6 +257,27 @@ func (rpc *RpcHandler) broadcastEnvelope(env *pb.Envelope, except int) {
 			continue
 		}
 		pd := NewProtoDispatcher(rpc, uid)
+		if err := pd.SendProtobuf(env); err != nil {
+			log.Errorf("broadcast failed for user %v: %v", uid, err)
+		}
+	}
+}
+
+// broadcastToChannelCollaborators sends an envelope to every client that has
+// joined the notes buffer of the given channel, except the sender.
+func (rpc *RpcHandler) broadcastToChannelCollaborators(channelId uint64, env *pb.Envelope, except int) {
+	state := rpc.channelBuffers.Get(channelId)
+	if state == nil {
+		return
+	}
+	for _, uid := range state.collaboratorUserIds() {
+		if int(uid) == except {
+			continue
+		}
+		if !rpc.sockets.Exists(int(uid)) {
+			continue
+		}
+		pd := NewProtoDispatcher(rpc, int(uid))
 		if err := pd.SendProtobuf(env); err != nil {
 			log.Errorf("broadcast failed for user %v: %v", uid, err)
 		}
@@ -231,8 +378,29 @@ func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
 			log.Errorf("failed to receive message: %v", err)
 			return
 		}
-		rpc.handleMessage(pd, message)
+		decoded, err := DecompressMsg(message)
+		if err != nil {
+			log.Errorf("failed to decompress message: %v", err)
+			continue
+		}
+		rpc.handleMessage(pd, decoded)
 	}
+}
+
+// DecompressMsg decodes a zstd-compressed RPC frame. Zed compresses every
+// envelope it sends over the websocket, so incoming frames must be
+// decompressed before they can be unmarshalled. Frames that are not
+// compressed are passed through unchanged.
+func DecompressMsg(b []byte) ([]byte, error) {
+	if len(b) < 4 || !bytes.Equal(b[:4], zstdMagic) {
+		return b, nil
+	}
+	decoder, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+	if err != nil {
+		return nil, err
+	}
+	defer decoder.Close()
+	return decoder.DecodeAll(b, nil)
 }
 
 func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error {
@@ -348,31 +516,25 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		jcb := msg.JoinChannelBuffer
 		state := rpc.channelBuffers.Get(jcb.ChannelId)
 		if state == nil {
-			state = &channelBufferState{baseText: "", epoch: 1}
+			state = newChannelBufferState()
 			rpc.channelBuffers.Set(jcb.ChannelId, state)
 		}
-		state.mu.Lock()
-		if !containsUint64(state.collaborators, uint64(pd.userId)) {
-			state.collaborators = append(state.collaborators, uint64(pd.userId))
-		}
-		ops := append([]*pb.Operation{}, state.operations...)
-		base := state.baseText
-		epoch := state.epoch
-		version := append([]*pb.VectorClockEntry{}, state.version...)
-		collabs := append([]uint64{}, state.collaborators...)
-		state.mu.Unlock()
+		userId := uint64(pd.userId)
+		collaborator := state.addCollaborator(userId, pd.peerId)
+		base, epoch, ops, _ := state.snapshot()
+		collabs := state.collaboratorList()
 
-		// notify other collaborators
+		// Let the other collaborators know about the new participant.
 		updateCollabs := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannelBufferCollaborators{
 				UpdateChannelBufferCollaborators: &pb.UpdateChannelBufferCollaborators{
 					ChannelId:     jcb.ChannelId,
-					Collaborators: collabProtos(collabs),
+					Collaborators: collabs,
 				},
 			},
 		}
-		rpc.broadcastEnvelope(&updateCollabs, pd.userId)
+		rpc.broadcastToChannelCollaborators(jcb.ChannelId, &updateCollabs, pd.userId)
 
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
@@ -380,15 +542,14 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			Payload: &pb.Envelope_JoinChannelBufferResponse{
 				JoinChannelBufferResponse: &pb.JoinChannelBufferResponse{
 					BufferId:      jcb.ChannelId,
-					ReplicaId:     uint32(pd.userId),
+					ReplicaId:     collaborator.ReplicaId,
 					BaseText:      base,
 					Operations:    ops,
 					Epoch:         epoch,
-					Collaborators: collabProtos(collabs),
+					Collaborators: collabs,
 				},
 			},
 		}
-		_ = version
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
@@ -649,20 +810,16 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		for _, bv := range rcb.Buffers {
 			state := rpc.channelBuffers.Get(bv.ChannelId)
 			if state == nil {
-				state = &channelBufferState{baseText: "", epoch: 1}
+				state = newChannelBufferState()
 				rpc.channelBuffers.Set(bv.ChannelId, state)
 			}
-			state.mu.Lock()
-			ops := append([]*pb.Operation{}, state.operations...)
-			collabs := append([]uint64{}, state.collaborators...)
-			epoch := state.epoch
-			state.mu.Unlock()
+			state.addCollaborator(uint64(pd.userId), pd.peerId)
+			_, _, ops, _ := state.snapshot()
 			rejoined = append(rejoined, &pb.RejoinedChannelBuffer{
 				ChannelId:     bv.ChannelId,
 				Operations:    ops,
-				Collaborators: collabProtos(collabs),
+				Collaborators: state.collaboratorList(),
 			})
-			_ = epoch
 		}
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
@@ -836,13 +993,10 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		ucb := msg.UpdateChannelBuffer
 		state := rpc.channelBuffers.Get(ucb.ChannelId)
 		if state == nil {
-			state = &channelBufferState{baseText: "", epoch: 1}
+			state = newChannelBufferState()
 			rpc.channelBuffers.Set(ucb.ChannelId, state)
 		}
-		state.mu.Lock()
-		state.operations = append(state.operations, ucb.Operations...)
-		state.epoch++
-		state.mu.Unlock()
+		state.recordOperations(ucb.Operations)
 
 		broadcast := pb.Envelope{
 			Id: pd.NextId(),
@@ -850,35 +1004,27 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 				UpdateChannelBuffer: ucb,
 			},
 		}
-		rpc.broadcastEnvelope(&broadcast, pd.userId)
+		rpc.broadcastToChannelCollaborators(ucb.ChannelId, &broadcast, pd.userId)
 
 	case *pb.Envelope_LeaveChannelBuffer:
 		lcb := msg.LeaveChannelBuffer
 		state := rpc.channelBuffers.Get(lcb.ChannelId)
 		if state != nil {
-			state.mu.Lock()
-			filtered := []uint64{}
-			for _, c := range state.collaborators {
-				if c != uint64(pd.userId) {
-					filtered = append(filtered, c)
-				}
-			}
-			state.collaborators = filtered
-			state.mu.Unlock()
+			state.removeCollaborator(uint64(pd.userId))
 			updateCollabs := pb.Envelope{
 				Id: pd.NextId(),
 				Payload: &pb.Envelope_UpdateChannelBufferCollaborators{
 					UpdateChannelBufferCollaborators: &pb.UpdateChannelBufferCollaborators{
 						ChannelId:     lcb.ChannelId,
-						Collaborators: collabProtos(filtered),
+						Collaborators: state.collaboratorList(),
 					},
 				},
 			}
-			rpc.broadcastEnvelope(&updateCollabs, pd.userId)
+			rpc.broadcastToChannelCollaborators(lcb.ChannelId, &updateCollabs, pd.userId)
 		}
 		resp := pb.Envelope{
 			RespondingTo: &envelope.Id,
-			Payload:      &pb.Envelope_Ack{},
+			Payload:      &pb.Envelope_Ack{Ack: &pb.Ack{}},
 		}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
@@ -886,6 +1032,9 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 
 	case *pb.Envelope_UpdateChannelBufferCollaborators:
 		log.Debug("Envelope_UpdateChannelBufferCollaborators")
+
+	case *pb.Envelope_AckBufferOperation:
+		log.Debug("Envelope_AckBufferOperation")
 
 	default:
 		log.Infof("Received unmapped WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
