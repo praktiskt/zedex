@@ -29,14 +29,14 @@ var getExtensionCmd = &cobra.Command{
 				log.Infof("(extension=%v) downloading", id)
 				bytes, err := zc.DownloadExtensionArchiveDefault(zed.Extension{ID: id})
 				if err != nil {
-					log.Errorf("(extension=%v) %v", err.Error())
+					log.Errorf("(extension=%v) %v", id, err.Error())
 					return
 				}
 
 				utils.CreateDirIfNotExists(getExtensionCmdConfig.outputDir)
 				err = os.WriteFile(path.Join(getExtensionCmdConfig.outputDir, id+".tar.gz"), bytes, 0o644)
 				if err != nil {
-					log.Errorf("(extension=%v) %v", err.Error())
+					log.Errorf("(extension=%v) %v", id, err.Error())
 					return
 				}
 				log.Infof("(extension=%v) wrote %v bytes", id, len(bytes))

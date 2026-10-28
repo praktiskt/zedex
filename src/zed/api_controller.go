@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"math"
 	mrand "math/rand"
-	"os"
+	"io"
+	"net/http"
 	"path"
 	"strconv"
 	"strings"
 
-	"zedex/llm"
 	"zedex/utils"
 
 	"github.com/gin-gonic/gin"
@@ -23,64 +23,56 @@ import (
 
 type Controller struct {
 	zed                  Client
-	llm                  *llm.OpenAIHost
 	port                 int
 	enableExtensionStore bool
 	enableLogin          bool
-	enableEditPrediction bool
 	enableReleases       bool
 	enableReleaseNotes   bool
 
-	editPredictClient EditPredictClient
 	rpcHandler        RpcHandler
 }
 
 func NewController(
 	enableExtensionStore bool,
 	enableLogin bool,
-	enableEditPrediction bool,
 	enableReleases bool,
 	enableReleaseNotes bool,
 	zedClient Client,
 	port int,
 ) Controller {
-	_, envExists := os.LookupEnv("OPENAI_COMPATIBLE_API_KEY")
-	oai := llm.NewOpenAIHost(
-		utils.EnvWithFallback("OPENAI_COMPATIBLE_HOST", "https://api.groq.com/openai/v1/chat/completions"),
-		utils.IfElse(envExists, "OPENAI_COMPATIBLE_API_KEY", "GROQ_API_KEY"),
-	).
-		WithModel(utils.EnvWithFallback("OPENAI_COMPATIBLE_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")).
-		WithTemperature(0.1). // TODO: Use env.
-		WithSystemPrompt(utils.EnvWithFallback("OPENAI_COMPATIBLE_SYSTEM_PROMPT", `You are a code autocomplete engine.
-
-RULES:
-* Only respond with code (nothing else).
-* YOU MUST INCLUDE ALL PLACEHOLDERS "<|editable_region_start|>" AND "<|editable_region_end|>" IN YOUR RESPONSE.
-* YOU MAY ALTER ALL CODE CONTAINED WITHIN "<|editable_region_start|>" AND "<|editable_region_end|>".
-* ALWAYS AUTO COMPLETE AS LITTLE AS POSSIBLE`))
 	return Controller{
 		zed:                  zedClient,
 		enableExtensionStore: enableExtensionStore,
 		enableLogin:          enableLogin,
-		enableEditPrediction: enableEditPrediction,
 		enableReleases:       enableReleases,
 		enableReleaseNotes:   enableReleaseNotes,
 		port:                 port,
-		editPredictClient:    NewEditPredictClient(*oai),
 		rpcHandler:           NewRpcHandler(),
 	}
 }
 
 func (co *Controller) Extensions(c *gin.Context) {
+	if !co.enableExtensionStore {
+		u := co.zed.apiHost + "/extensions"
+		if c.Request.URL.RawQuery != "" {
+			u += "?" + c.Request.URL.RawQuery
+		}
+		resp, err := http.Get(u)
+		if err != nil {
+			logrus.Error(err)
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		c.Data(resp.StatusCode, "application/json", body)
+		return
+	}
 	var extensions Extensions
 	var err error
 
-	if co.enableExtensionStore {
-		extensionsFile := path.Join(co.zed.extensionsLocalDir, "extensions.json")
-		extensions, err = co.zed.LoadExtensionIndex(extensionsFile)
-	} else {
-		extensions, err = co.zed.GetExtensionsIndex()
-	}
+	extensionsFile := path.Join(co.zed.extensionsLocalDir, "extensions.json")
+	extensions, err = co.zed.LoadExtensionIndex(extensionsFile)
 
 	if err != nil {
 		logrus.Error(err)
@@ -120,6 +112,26 @@ func (co *Controller) Extensions(c *gin.Context) {
 }
 
 func (co *Controller) DownloadExtension(c *gin.Context) {
+	if !co.enableExtensionStore {
+		u := co.zed.apiHost + c.Request.URL.Path
+		if c.Request.URL.RawQuery != "" {
+			u += "?" + c.Request.URL.RawQuery
+		}
+		resp, err := http.Get(u)
+		if err != nil {
+			logrus.Error(err)
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		contentType := resp.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		c.Data(resp.StatusCode, contentType, body)
+		return
+	}
 	id := c.Param("id")
 
 	// TODO: Do we care about version?
@@ -291,20 +303,59 @@ func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
 	co.rpcHandler.HandleRequest(c)
 }
 
-func (co *Controller) HandleEditPredictRequest(c *gin.Context) {
-	epr := EditPredictRequest{}
-	if err := c.ShouldBindJSON(&epr); err != nil {
-		logrus.Error(err)
-		c.JSON(500, gin.H{"error": err.Error()})
+
+func (co *Controller) ExtensionUpdates(c *gin.Context) {
+	if !co.enableExtensionStore {
+		u := co.zed.apiHost + "/extensions/updates"
+		if c.Request.URL.RawQuery != "" {
+			u += "?" + c.Request.URL.RawQuery
+		}
+		resp, err := http.Get(u)
+		if err != nil {
+			logrus.Error(err)
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		c.Data(resp.StatusCode, "application/json", body)
+		return
+	}
+	c.JSON(200, wrappedExtensions{Data: Extensions{}})
+}
+
+
+func (co *Controller) Extension(c *gin.Context) {
+	id := c.Param("id")
+	if !co.enableExtensionStore {
+		u := co.zed.apiHost + "/extensions/" + id
+		if c.Request.URL.RawQuery != "" {
+			u += "?" + c.Request.URL.RawQuery
+		}
+		resp, err := http.Get(u)
+		if err != nil {
+			logrus.Error(err)
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		c.Data(resp.StatusCode, "application/json", body)
 		return
 	}
 
-	resp, err := co.editPredictClient.HandleRequest(epr)
+	extensionsFile := path.Join(co.zed.extensionsLocalDir, "extensions.json")
+	extensions, err := co.zed.LoadExtensionIndex(extensionsFile)
 	if err != nil {
 		logrus.Error(err)
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-
-	c.JSON(200, resp)
+	var filtered Extensions
+	for _, e := range extensions {
+		if e.ID == id {
+			filtered = append(filtered, e)
+		}
+	}
+	c.JSON(200, filtered.AsWrapped())
 }

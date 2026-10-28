@@ -1,12 +1,16 @@
 package llm
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGroq(t *testing.T) {
+	if _, ok := os.LookupEnv("GROQ_API_KEY"); !ok {
+		t.Skip("GROQ_API_KEY not set")
+	}
 	groq := NewOpenAIHost(
 		"https://api.groq.com/openai/v1/chat/completions",
 		"GROQ_API_KEY",

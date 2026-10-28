@@ -374,6 +374,297 @@ func (*System) Descriptor() ([]byte, []int) {
 	return file_task_proto_rawDescGZIP(), []int{3}
 }
 
+type SpawnInTerminal struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Label   string            `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Command *string           `protobuf:"bytes,2,opt,name=command,proto3,oneof" json:"command,omitempty"`
+	Args    []string          `protobuf:"bytes,3,rep,name=args,proto3" json:"args,omitempty"`
+	Env     map[string]string `protobuf:"bytes,4,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Cwd     *string           `protobuf:"bytes,5,opt,name=cwd,proto3,oneof" json:"cwd,omitempty"`
+}
+
+func (x *SpawnInTerminal) Reset() {
+	*x = SpawnInTerminal{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_task_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SpawnInTerminal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SpawnInTerminal) ProtoMessage() {}
+
+func (x *SpawnInTerminal) ProtoReflect() protoreflect.Message {
+	mi := &file_task_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SpawnInTerminal.ProtoReflect.Descriptor instead.
+func (*SpawnInTerminal) Descriptor() ([]byte, []int) {
+	return file_task_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *SpawnInTerminal) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *SpawnInTerminal) GetCommand() string {
+	if x != nil && x.Command != nil {
+		return *x.Command
+	}
+	return ""
+}
+
+func (x *SpawnInTerminal) GetArgs() []string {
+	if x != nil {
+		return x.Args
+	}
+	return nil
+}
+
+func (x *SpawnInTerminal) GetEnv() map[string]string {
+	if x != nil {
+		return x.Env
+	}
+	return nil
+}
+
+func (x *SpawnInTerminal) GetCwd() string {
+	if x != nil && x.Cwd != nil {
+		return *x.Cwd
+	}
+	return ""
+}
+
+type GetDirectoryEnvironment struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ProjectId uint64 `protobuf:"varint,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	Shell     *Shell `protobuf:"bytes,2,opt,name=shell,proto3" json:"shell,omitempty"`
+	Directory string `protobuf:"bytes,3,opt,name=directory,proto3" json:"directory,omitempty"`
+}
+
+func (x *GetDirectoryEnvironment) Reset() {
+	*x = GetDirectoryEnvironment{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_task_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetDirectoryEnvironment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDirectoryEnvironment) ProtoMessage() {}
+
+func (x *GetDirectoryEnvironment) ProtoReflect() protoreflect.Message {
+	mi := &file_task_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDirectoryEnvironment.ProtoReflect.Descriptor instead.
+func (*GetDirectoryEnvironment) Descriptor() ([]byte, []int) {
+	return file_task_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetDirectoryEnvironment) GetProjectId() uint64 {
+	if x != nil {
+		return x.ProjectId
+	}
+	return 0
+}
+
+func (x *GetDirectoryEnvironment) GetShell() *Shell {
+	if x != nil {
+		return x.Shell
+	}
+	return nil
+}
+
+func (x *GetDirectoryEnvironment) GetDirectory() string {
+	if x != nil {
+		return x.Directory
+	}
+	return ""
+}
+
+type DirectoryEnvironment struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Environment map[string]string `protobuf:"bytes,1,rep,name=environment,proto3" json:"environment,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (x *DirectoryEnvironment) Reset() {
+	*x = DirectoryEnvironment{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_task_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DirectoryEnvironment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DirectoryEnvironment) ProtoMessage() {}
+
+func (x *DirectoryEnvironment) ProtoReflect() protoreflect.Message {
+	mi := &file_task_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DirectoryEnvironment.ProtoReflect.Descriptor instead.
+func (*DirectoryEnvironment) Descriptor() ([]byte, []int) {
+	return file_task_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *DirectoryEnvironment) GetEnvironment() map[string]string {
+	if x != nil {
+		return x.Environment
+	}
+	return nil
+}
+
+type GetTerminalShell struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ProjectId  uint64  `protobuf:"varint,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	WorktreeId *uint64 `protobuf:"varint,2,opt,name=worktree_id,json=worktreeId,proto3,oneof" json:"worktree_id,omitempty"`
+}
+
+func (x *GetTerminalShell) Reset() {
+	*x = GetTerminalShell{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_task_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetTerminalShell) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTerminalShell) ProtoMessage() {}
+
+func (x *GetTerminalShell) ProtoReflect() protoreflect.Message {
+	mi := &file_task_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTerminalShell.ProtoReflect.Descriptor instead.
+func (*GetTerminalShell) Descriptor() ([]byte, []int) {
+	return file_task_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetTerminalShell) GetProjectId() uint64 {
+	if x != nil {
+		return x.ProjectId
+	}
+	return 0
+}
+
+func (x *GetTerminalShell) GetWorktreeId() uint64 {
+	if x != nil && x.WorktreeId != nil {
+		return *x.WorktreeId
+	}
+	return 0
+}
+
+type GetTerminalShellResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Shell *Shell `protobuf:"bytes,1,opt,name=shell,proto3" json:"shell,omitempty"`
+}
+
+func (x *GetTerminalShellResponse) Reset() {
+	*x = GetTerminalShellResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_task_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetTerminalShellResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTerminalShellResponse) ProtoMessage() {}
+
+func (x *GetTerminalShellResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_task_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTerminalShellResponse.ProtoReflect.Descriptor instead.
+func (*GetTerminalShellResponse) Descriptor() ([]byte, []int) {
+	return file_task_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetTerminalShellResponse) GetShell() *Shell {
+	if x != nil {
+		return x.Shell
+	}
+	return nil
+}
+
 type Shell_WithArguments struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -386,7 +677,7 @@ type Shell_WithArguments struct {
 func (x *Shell_WithArguments) Reset() {
 	*x = Shell_WithArguments{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_task_proto_msgTypes[7]
+		mi := &file_task_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -399,7 +690,7 @@ func (x *Shell_WithArguments) String() string {
 func (*Shell_WithArguments) ProtoMessage() {}
 
 func (x *Shell_WithArguments) ProtoReflect() protoreflect.Message {
-	mi := &file_task_proto_msgTypes[7]
+	mi := &file_task_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -488,15 +779,61 @@ var file_task_proto_rawDesc = []byte{
 	0x72, 0x6f, 0x67, 0x72, 0x61, 0x6d, 0x12, 0x12, 0x0a, 0x04, 0x61, 0x72, 0x67, 0x73, 0x18, 0x02,
 	0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x61, 0x72, 0x67, 0x73, 0x42, 0x0c, 0x0a, 0x0a, 0x73, 0x68,
 	0x65, 0x6c, 0x6c, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x22, 0x08, 0x0a, 0x06, 0x53, 0x79, 0x73, 0x74,
-	0x65, 0x6d, 0x2a, 0x33, 0x0a, 0x0e, 0x52, 0x65, 0x76, 0x65, 0x61, 0x6c, 0x53, 0x74, 0x72, 0x61,
-	0x74, 0x65, 0x67, 0x79, 0x12, 0x10, 0x0a, 0x0c, 0x52, 0x65, 0x76, 0x65, 0x61, 0x6c, 0x41, 0x6c,
-	0x77, 0x61, 0x79, 0x73, 0x10, 0x00, 0x12, 0x0f, 0x0a, 0x0b, 0x52, 0x65, 0x76, 0x65, 0x61, 0x6c,
-	0x4e, 0x65, 0x76, 0x65, 0x72, 0x10, 0x01, 0x2a, 0x40, 0x0a, 0x0c, 0x48, 0x69, 0x64, 0x65, 0x53,
-	0x74, 0x72, 0x61, 0x74, 0x65, 0x67, 0x79, 0x12, 0x0e, 0x0a, 0x0a, 0x48, 0x69, 0x64, 0x65, 0x41,
-	0x6c, 0x77, 0x61, 0x79, 0x73, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x48, 0x69, 0x64, 0x65, 0x4e,
-	0x65, 0x76, 0x65, 0x72, 0x10, 0x01, 0x12, 0x11, 0x0a, 0x0d, 0x48, 0x69, 0x64, 0x65, 0x4f, 0x6e,
-	0x53, 0x75, 0x63, 0x63, 0x65, 0x73, 0x73, 0x10, 0x02, 0x42, 0x06, 0x5a, 0x04, 0x2e, 0x2f, 0x70,
-	0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x65, 0x6d, 0x22, 0xf7, 0x01, 0x0a, 0x0f, 0x53, 0x70, 0x61, 0x77, 0x6e, 0x49, 0x6e, 0x54, 0x65,
+	0x72, 0x6d, 0x69, 0x6e, 0x61, 0x6c, 0x12, 0x14, 0x0a, 0x05, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x12, 0x1d, 0x0a, 0x07,
+	0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52,
+	0x07, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x88, 0x01, 0x01, 0x12, 0x12, 0x0a, 0x04, 0x61,
+	0x72, 0x67, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x61, 0x72, 0x67, 0x73, 0x12,
+	0x38, 0x0a, 0x03, 0x65, 0x6e, 0x76, 0x18, 0x04, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x26, 0x2e, 0x7a,
+	0x65, 0x64, 0x2e, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x2e, 0x53, 0x70, 0x61, 0x77,
+	0x6e, 0x49, 0x6e, 0x54, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x61, 0x6c, 0x2e, 0x45, 0x6e, 0x76, 0x45,
+	0x6e, 0x74, 0x72, 0x79, 0x52, 0x03, 0x65, 0x6e, 0x76, 0x12, 0x15, 0x0a, 0x03, 0x63, 0x77, 0x64,
+	0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x48, 0x01, 0x52, 0x03, 0x63, 0x77, 0x64, 0x88, 0x01, 0x01,
+	0x1a, 0x36, 0x0a, 0x08, 0x45, 0x6e, 0x76, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03,
+	0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14,
+	0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76,
+	0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x42, 0x0a, 0x0a, 0x08, 0x5f, 0x63, 0x6f, 0x6d,
+	0x6d, 0x61, 0x6e, 0x64, 0x42, 0x06, 0x0a, 0x04, 0x5f, 0x63, 0x77, 0x64, 0x22, 0x81, 0x01, 0x0a,
+	0x17, 0x47, 0x65, 0x74, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79, 0x45, 0x6e, 0x76,
+	0x69, 0x72, 0x6f, 0x6e, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a,
+	0x65, 0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72,
+	0x6f, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x12, 0x29, 0x0a, 0x05, 0x73, 0x68, 0x65, 0x6c, 0x6c,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x7a, 0x65, 0x64, 0x2e, 0x6d, 0x65, 0x73,
+	0x73, 0x61, 0x67, 0x65, 0x73, 0x2e, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x52, 0x05, 0x73, 0x68, 0x65,
+	0x6c, 0x6c, 0x12, 0x1c, 0x0a, 0x09, 0x64, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x64, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79,
+	0x22, 0xad, 0x01, 0x0a, 0x14, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79, 0x45, 0x6e,
+	0x76, 0x69, 0x72, 0x6f, 0x6e, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x55, 0x0a, 0x0b, 0x65, 0x6e, 0x76,
+	0x69, 0x72, 0x6f, 0x6e, 0x6d, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x33,
+	0x2e, 0x7a, 0x65, 0x64, 0x2e, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x2e, 0x44, 0x69,
+	0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x79, 0x45, 0x6e, 0x76, 0x69, 0x72, 0x6f, 0x6e, 0x6d, 0x65,
+	0x6e, 0x74, 0x2e, 0x45, 0x6e, 0x76, 0x69, 0x72, 0x6f, 0x6e, 0x6d, 0x65, 0x6e, 0x74, 0x45, 0x6e,
+	0x74, 0x72, 0x79, 0x52, 0x0b, 0x65, 0x6e, 0x76, 0x69, 0x72, 0x6f, 0x6e, 0x6d, 0x65, 0x6e, 0x74,
+	0x1a, 0x3e, 0x0a, 0x10, 0x45, 0x6e, 0x76, 0x69, 0x72, 0x6f, 0x6e, 0x6d, 0x65, 0x6e, 0x74, 0x45,
+	0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01,
+	0x22, 0x67, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x54, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x61, 0x6c, 0x53,
+	0x68, 0x65, 0x6c, 0x6c, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x5f,
+	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63,
+	0x74, 0x49, 0x64, 0x12, 0x24, 0x0a, 0x0b, 0x77, 0x6f, 0x72, 0x6b, 0x74, 0x72, 0x65, 0x65, 0x5f,
+	0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x48, 0x00, 0x52, 0x0a, 0x77, 0x6f, 0x72, 0x6b,
+	0x74, 0x72, 0x65, 0x65, 0x49, 0x64, 0x88, 0x01, 0x01, 0x42, 0x0e, 0x0a, 0x0c, 0x5f, 0x77, 0x6f,
+	0x72, 0x6b, 0x74, 0x72, 0x65, 0x65, 0x5f, 0x69, 0x64, 0x22, 0x45, 0x0a, 0x18, 0x47, 0x65, 0x74,
+	0x54, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x61, 0x6c, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x29, 0x0a, 0x05, 0x73, 0x68, 0x65, 0x6c, 0x6c, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x7a, 0x65, 0x64, 0x2e, 0x6d, 0x65, 0x73, 0x73, 0x61,
+	0x67, 0x65, 0x73, 0x2e, 0x53, 0x68, 0x65, 0x6c, 0x6c, 0x52, 0x05, 0x73, 0x68, 0x65, 0x6c, 0x6c,
+	0x2a, 0x33, 0x0a, 0x0e, 0x52, 0x65, 0x76, 0x65, 0x61, 0x6c, 0x53, 0x74, 0x72, 0x61, 0x74, 0x65,
+	0x67, 0x79, 0x12, 0x10, 0x0a, 0x0c, 0x52, 0x65, 0x76, 0x65, 0x61, 0x6c, 0x41, 0x6c, 0x77, 0x61,
+	0x79, 0x73, 0x10, 0x00, 0x12, 0x0f, 0x0a, 0x0b, 0x52, 0x65, 0x76, 0x65, 0x61, 0x6c, 0x4e, 0x65,
+	0x76, 0x65, 0x72, 0x10, 0x01, 0x2a, 0x40, 0x0a, 0x0c, 0x48, 0x69, 0x64, 0x65, 0x53, 0x74, 0x72,
+	0x61, 0x74, 0x65, 0x67, 0x79, 0x12, 0x0e, 0x0a, 0x0a, 0x48, 0x69, 0x64, 0x65, 0x41, 0x6c, 0x77,
+	0x61, 0x79, 0x73, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x48, 0x69, 0x64, 0x65, 0x4e, 0x65, 0x76,
+	0x65, 0x72, 0x10, 0x01, 0x12, 0x11, 0x0a, 0x0d, 0x48, 0x69, 0x64, 0x65, 0x4f, 0x6e, 0x53, 0x75,
+	0x63, 0x63, 0x65, 0x73, 0x73, 0x10, 0x02, 0x42, 0x06, 0x5a, 0x04, 0x2e, 0x2f, 0x70, 0x62, 0x62,
+	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -512,32 +849,43 @@ func file_task_proto_rawDescGZIP() []byte {
 }
 
 var file_task_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_task_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_task_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_task_proto_goTypes = []interface{}{
-	(RevealStrategy)(0),            // 0: zed.messages.RevealStrategy
-	(HideStrategy)(0),              // 1: zed.messages.HideStrategy
-	(*TaskContextForLocation)(nil), // 2: zed.messages.TaskContextForLocation
-	(*TaskContext)(nil),            // 3: zed.messages.TaskContext
-	(*Shell)(nil),                  // 4: zed.messages.Shell
-	(*System)(nil),                 // 5: zed.messages.System
-	nil,                            // 6: zed.messages.TaskContextForLocation.TaskVariablesEntry
-	nil,                            // 7: zed.messages.TaskContext.TaskVariablesEntry
-	nil,                            // 8: zed.messages.TaskContext.ProjectEnvEntry
-	(*Shell_WithArguments)(nil),    // 9: zed.messages.Shell.WithArguments
-	(*Location)(nil),               // 10: zed.messages.Location
+	(RevealStrategy)(0),              // 0: zed.messages.RevealStrategy
+	(HideStrategy)(0),                // 1: zed.messages.HideStrategy
+	(*TaskContextForLocation)(nil),   // 2: zed.messages.TaskContextForLocation
+	(*TaskContext)(nil),              // 3: zed.messages.TaskContext
+	(*Shell)(nil),                    // 4: zed.messages.Shell
+	(*System)(nil),                   // 5: zed.messages.System
+	(*SpawnInTerminal)(nil),          // 6: zed.messages.SpawnInTerminal
+	(*GetDirectoryEnvironment)(nil),  // 7: zed.messages.GetDirectoryEnvironment
+	(*DirectoryEnvironment)(nil),     // 8: zed.messages.DirectoryEnvironment
+	(*GetTerminalShell)(nil),         // 9: zed.messages.GetTerminalShell
+	(*GetTerminalShellResponse)(nil), // 10: zed.messages.GetTerminalShellResponse
+	nil,                              // 11: zed.messages.TaskContextForLocation.TaskVariablesEntry
+	nil,                              // 12: zed.messages.TaskContext.TaskVariablesEntry
+	nil,                              // 13: zed.messages.TaskContext.ProjectEnvEntry
+	(*Shell_WithArguments)(nil),      // 14: zed.messages.Shell.WithArguments
+	nil,                              // 15: zed.messages.SpawnInTerminal.EnvEntry
+	nil,                              // 16: zed.messages.DirectoryEnvironment.EnvironmentEntry
+	(*Location)(nil),                 // 17: zed.messages.Location
 }
 var file_task_proto_depIdxs = []int32{
-	10, // 0: zed.messages.TaskContextForLocation.location:type_name -> zed.messages.Location
-	6,  // 1: zed.messages.TaskContextForLocation.task_variables:type_name -> zed.messages.TaskContextForLocation.TaskVariablesEntry
-	7,  // 2: zed.messages.TaskContext.task_variables:type_name -> zed.messages.TaskContext.TaskVariablesEntry
-	8,  // 3: zed.messages.TaskContext.project_env:type_name -> zed.messages.TaskContext.ProjectEnvEntry
+	17, // 0: zed.messages.TaskContextForLocation.location:type_name -> zed.messages.Location
+	11, // 1: zed.messages.TaskContextForLocation.task_variables:type_name -> zed.messages.TaskContextForLocation.TaskVariablesEntry
+	12, // 2: zed.messages.TaskContext.task_variables:type_name -> zed.messages.TaskContext.TaskVariablesEntry
+	13, // 3: zed.messages.TaskContext.project_env:type_name -> zed.messages.TaskContext.ProjectEnvEntry
 	5,  // 4: zed.messages.Shell.system:type_name -> zed.messages.System
-	9,  // 5: zed.messages.Shell.with_arguments:type_name -> zed.messages.Shell.WithArguments
-	6,  // [6:6] is the sub-list for method output_type
-	6,  // [6:6] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	14, // 5: zed.messages.Shell.with_arguments:type_name -> zed.messages.Shell.WithArguments
+	15, // 6: zed.messages.SpawnInTerminal.env:type_name -> zed.messages.SpawnInTerminal.EnvEntry
+	4,  // 7: zed.messages.GetDirectoryEnvironment.shell:type_name -> zed.messages.Shell
+	16, // 8: zed.messages.DirectoryEnvironment.environment:type_name -> zed.messages.DirectoryEnvironment.EnvironmentEntry
+	4,  // 9: zed.messages.GetTerminalShellResponse.shell:type_name -> zed.messages.Shell
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_task_proto_init() }
@@ -595,7 +943,67 @@ func file_task_proto_init() {
 				return nil
 			}
 		}
+		file_task_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SpawnInTerminal); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_task_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetDirectoryEnvironment); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_task_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DirectoryEnvironment); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 		file_task_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetTerminalShell); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_task_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetTerminalShellResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_task_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Shell_WithArguments); i {
 			case 0:
 				return &v.state
@@ -614,13 +1022,15 @@ func file_task_proto_init() {
 		(*Shell_Program)(nil),
 		(*Shell_WithArguments_)(nil),
 	}
+	file_task_proto_msgTypes[4].OneofWrappers = []interface{}{}
+	file_task_proto_msgTypes[7].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_task_proto_rawDesc,
 			NumEnums:      2,
-			NumMessages:   8,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

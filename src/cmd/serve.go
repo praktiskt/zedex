@@ -12,7 +12,6 @@ import (
 var serveCmdConfig = struct {
 	outputDir            string
 	port                 int
-	enableEditPrediction bool
 	enableLogin          bool
 	enableExtensionStore bool
 	enableReleases       bool
@@ -27,16 +26,12 @@ var serveCmd = &cobra.Command{
 		if !serveCmdConfig.enableLogin {
 			log.Fatalf("zedex does not support login forwarding yet")
 		}
-		if !serveCmdConfig.enableEditPrediction {
-			log.Fatalf("zedex does not support edit prediction forwarding yet")
-		}
 
 		zc := zed.NewZedClient(1)
 		zc.WithExtensionsLocalDir(serveCmdConfig.outputDir)
 		api := zed.NewAPI(
 			serveCmdConfig.enableExtensionStore,
 			serveCmdConfig.enableLogin,
-			serveCmdConfig.enableEditPrediction,
 			serveCmdConfig.enableReleases,
 			serveCmdConfig.enableReleaseNotes,
 			zc,
@@ -50,7 +45,6 @@ var serveCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(serveCmd)
 	serveCmd.Flags().BoolVar(&serveCmdConfig.enableLogin, "enable-login", true, "enable login requests, letting zedex manage them")
-	serveCmd.Flags().BoolVar(&serveCmdConfig.enableEditPrediction, "enable-edit-prediction", true, "enable edit prediction requests, letting zedex manage them")
 	serveCmd.Flags().BoolVar(&serveCmdConfig.enableExtensionStore, "enable-extension-store", true, "enable extension store requests, letting zedex manage them")
 	serveCmd.Flags().BoolVar(&serveCmdConfig.enableReleases, "enable-releases", true, "enable release update requests, letting zedex manage them")
 	serveCmd.Flags().BoolVar(&serveCmdConfig.enableReleaseNotes, "enable-release-notes", true, "enable release note requests, letting zedex manage them")

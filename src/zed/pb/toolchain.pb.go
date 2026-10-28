@@ -477,6 +477,150 @@ func (x *ActiveToolchainResponse) GetToolchain() *Toolchain {
 	return nil
 }
 
+type ResolveToolchain struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ProjectId    uint64 `protobuf:"varint,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	AbsPath      string `protobuf:"bytes,2,opt,name=abs_path,json=absPath,proto3" json:"abs_path,omitempty"`
+	LanguageName string `protobuf:"bytes,3,opt,name=language_name,json=languageName,proto3" json:"language_name,omitempty"`
+}
+
+func (x *ResolveToolchain) Reset() {
+	*x = ResolveToolchain{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_toolchain_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ResolveToolchain) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveToolchain) ProtoMessage() {}
+
+func (x *ResolveToolchain) ProtoReflect() protoreflect.Message {
+	mi := &file_toolchain_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveToolchain.ProtoReflect.Descriptor instead.
+func (*ResolveToolchain) Descriptor() ([]byte, []int) {
+	return file_toolchain_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ResolveToolchain) GetProjectId() uint64 {
+	if x != nil {
+		return x.ProjectId
+	}
+	return 0
+}
+
+func (x *ResolveToolchain) GetAbsPath() string {
+	if x != nil {
+		return x.AbsPath
+	}
+	return ""
+}
+
+func (x *ResolveToolchain) GetLanguageName() string {
+	if x != nil {
+		return x.LanguageName
+	}
+	return ""
+}
+
+type ResolveToolchainResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Types that are assignable to Response:
+	//
+	//	*ResolveToolchainResponse_Toolchain
+	//	*ResolveToolchainResponse_Error
+	Response isResolveToolchainResponse_Response `protobuf_oneof:"response"`
+}
+
+func (x *ResolveToolchainResponse) Reset() {
+	*x = ResolveToolchainResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_toolchain_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ResolveToolchainResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveToolchainResponse) ProtoMessage() {}
+
+func (x *ResolveToolchainResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_toolchain_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveToolchainResponse.ProtoReflect.Descriptor instead.
+func (*ResolveToolchainResponse) Descriptor() ([]byte, []int) {
+	return file_toolchain_proto_rawDescGZIP(), []int{8}
+}
+
+func (m *ResolveToolchainResponse) GetResponse() isResolveToolchainResponse_Response {
+	if m != nil {
+		return m.Response
+	}
+	return nil
+}
+
+func (x *ResolveToolchainResponse) GetToolchain() *Toolchain {
+	if x, ok := x.GetResponse().(*ResolveToolchainResponse_Toolchain); ok {
+		return x.Toolchain
+	}
+	return nil
+}
+
+func (x *ResolveToolchainResponse) GetError() string {
+	if x, ok := x.GetResponse().(*ResolveToolchainResponse_Error); ok {
+		return x.Error
+	}
+	return ""
+}
+
+type isResolveToolchainResponse_Response interface {
+	isResolveToolchainResponse_Response()
+}
+
+type ResolveToolchainResponse_Toolchain struct {
+	Toolchain *Toolchain `protobuf:"bytes,1,opt,name=toolchain,proto3,oneof"`
+}
+
+type ResolveToolchainResponse_Error struct {
+	Error string `protobuf:"bytes,2,opt,name=error,proto3,oneof"`
+}
+
+func (*ResolveToolchainResponse_Toolchain) isResolveToolchainResponse_Response() {}
+
+func (*ResolveToolchainResponse_Error) isResolveToolchainResponse_Response() {}
+
 var File_toolchain_proto protoreflect.FileDescriptor
 
 var file_toolchain_proto_rawDesc = []byte{
@@ -546,8 +690,22 @@ var file_toolchain_proto_rawDesc = []byte{
 	0x65, 0x64, 0x2e, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x2e, 0x54, 0x6f, 0x6f, 0x6c,
 	0x63, 0x68, 0x61, 0x69, 0x6e, 0x48, 0x00, 0x52, 0x09, 0x74, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61,
 	0x69, 0x6e, 0x88, 0x01, 0x01, 0x42, 0x0c, 0x0a, 0x0a, 0x5f, 0x74, 0x6f, 0x6f, 0x6c, 0x63, 0x68,
-	0x61, 0x69, 0x6e, 0x42, 0x06, 0x5a, 0x04, 0x2e, 0x2f, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x61, 0x69, 0x6e, 0x22, 0x71, 0x0a, 0x10, 0x52, 0x65, 0x73, 0x6f, 0x6c, 0x76, 0x65, 0x54, 0x6f,
+	0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a, 0x65,
+	0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72, 0x6f,
+	0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x12, 0x19, 0x0a, 0x08, 0x61, 0x62, 0x73, 0x5f, 0x70, 0x61,
+	0x74, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61, 0x62, 0x73, 0x50, 0x61, 0x74,
+	0x68, 0x12, 0x23, 0x0a, 0x0d, 0x6c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x5f, 0x6e, 0x61,
+	0x6d, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x6c, 0x61, 0x6e, 0x67, 0x75, 0x61,
+	0x67, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x77, 0x0a, 0x18, 0x52, 0x65, 0x73, 0x6f, 0x6c, 0x76,
+	0x65, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x37, 0x0a, 0x09, 0x74, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x7a, 0x65, 0x64, 0x2e, 0x6d, 0x65, 0x73, 0x73,
+	0x61, 0x67, 0x65, 0x73, 0x2e, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x48, 0x00,
+	0x52, 0x09, 0x74, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x16, 0x0a, 0x05, 0x65,
+	0x72, 0x72, 0x6f, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x05, 0x65, 0x72,
+	0x72, 0x6f, 0x72, 0x42, 0x0a, 0x0a, 0x08, 0x72, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42,
+	0x06, 0x5a, 0x04, 0x2e, 0x2f, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -562,26 +720,29 @@ func file_toolchain_proto_rawDescGZIP() []byte {
 	return file_toolchain_proto_rawDescData
 }
 
-var file_toolchain_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_toolchain_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_toolchain_proto_goTypes = []interface{}{
-	(*ListToolchains)(nil),          // 0: zed.messages.ListToolchains
-	(*Toolchain)(nil),               // 1: zed.messages.Toolchain
-	(*ToolchainGroup)(nil),          // 2: zed.messages.ToolchainGroup
-	(*ListToolchainsResponse)(nil),  // 3: zed.messages.ListToolchainsResponse
-	(*ActivateToolchain)(nil),       // 4: zed.messages.ActivateToolchain
-	(*ActiveToolchain)(nil),         // 5: zed.messages.ActiveToolchain
-	(*ActiveToolchainResponse)(nil), // 6: zed.messages.ActiveToolchainResponse
+	(*ListToolchains)(nil),           // 0: zed.messages.ListToolchains
+	(*Toolchain)(nil),                // 1: zed.messages.Toolchain
+	(*ToolchainGroup)(nil),           // 2: zed.messages.ToolchainGroup
+	(*ListToolchainsResponse)(nil),   // 3: zed.messages.ListToolchainsResponse
+	(*ActivateToolchain)(nil),        // 4: zed.messages.ActivateToolchain
+	(*ActiveToolchain)(nil),          // 5: zed.messages.ActiveToolchain
+	(*ActiveToolchainResponse)(nil),  // 6: zed.messages.ActiveToolchainResponse
+	(*ResolveToolchain)(nil),         // 7: zed.messages.ResolveToolchain
+	(*ResolveToolchainResponse)(nil), // 8: zed.messages.ResolveToolchainResponse
 }
 var file_toolchain_proto_depIdxs = []int32{
 	1, // 0: zed.messages.ListToolchainsResponse.toolchains:type_name -> zed.messages.Toolchain
 	2, // 1: zed.messages.ListToolchainsResponse.groups:type_name -> zed.messages.ToolchainGroup
 	1, // 2: zed.messages.ActivateToolchain.toolchain:type_name -> zed.messages.Toolchain
 	1, // 3: zed.messages.ActiveToolchainResponse.toolchain:type_name -> zed.messages.Toolchain
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	1, // 4: zed.messages.ResolveToolchainResponse.toolchain:type_name -> zed.messages.Toolchain
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_toolchain_proto_init() }
@@ -674,19 +835,47 @@ func file_toolchain_proto_init() {
 				return nil
 			}
 		}
+		file_toolchain_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ResolveToolchain); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_toolchain_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ResolveToolchainResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_toolchain_proto_msgTypes[0].OneofWrappers = []interface{}{}
 	file_toolchain_proto_msgTypes[3].OneofWrappers = []interface{}{}
 	file_toolchain_proto_msgTypes[4].OneofWrappers = []interface{}{}
 	file_toolchain_proto_msgTypes[5].OneofWrappers = []interface{}{}
 	file_toolchain_proto_msgTypes[6].OneofWrappers = []interface{}{}
+	file_toolchain_proto_msgTypes[8].OneofWrappers = []interface{}{
+		(*ResolveToolchainResponse_Toolchain)(nil),
+		(*ResolveToolchainResponse_Error)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_toolchain_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

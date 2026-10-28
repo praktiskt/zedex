@@ -9,7 +9,6 @@ import (
 type API struct {
 	enableExtensionStore bool
 	enableLogin          bool
-	enableEditPrediction bool
 	enableReleases       bool
 	enableReleaseNotes   bool
 	zedClient            Client
@@ -19,7 +18,6 @@ type API struct {
 func NewAPI(
 	enableExtensionStore bool,
 	enableLogin bool,
-	enableEditPrediction bool,
 	enableReleases bool,
 	enableReleaseNotes bool,
 	zedClient Client,
@@ -30,7 +28,6 @@ func NewAPI(
 		port:                 port,
 		enableExtensionStore: enableExtensionStore,
 		enableLogin:          enableLogin,
-		enableEditPrediction: enableEditPrediction,
 		enableReleases:       enableReleases,
 		enableReleaseNotes:   enableReleaseNotes,
 	}
@@ -41,13 +38,14 @@ func (api *API) Router() *gin.Engine {
 	controller := NewController(
 		api.enableExtensionStore,
 		api.enableLogin,
-		api.enableEditPrediction,
 		api.enableReleases,
 		api.enableReleaseNotes,
 		api.zedClient,
 		api.port,
 	)
 	router.GET("/extensions", controller.Extensions)
+	router.GET("/extensions/updates", controller.ExtensionUpdates)
+	router.GET("/extensions/:id", controller.Extension)
 	router.GET("/extensions/:id/download", controller.DownloadExtension)
 	router.GET("/extensions/:id/:version/download", controller.DownloadExtension)
 
@@ -73,8 +71,6 @@ func (api *API) Router() *gin.Engine {
 	router.GET("/favicon.ico", func(c *gin.Context) {
 		c.String(200, "plain/text", "")
 	})
-
-	router.POST("/predict_edits/v2", controller.HandleEditPredictRequest)
 
 	router.POST("/client/llm_tokens", func(c *gin.Context) {
 		c.JSON(200, NewLLMToken())

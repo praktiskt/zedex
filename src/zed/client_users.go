@@ -6,30 +6,72 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type OrganizationID string
+
+type OrganizationUIPermissions struct {
+	CanInstallGithubApp bool `json:"can_install_github_app"`
+}
+
+type Organization struct {
+	ID            OrganizationID           `json:"id"`
+	Name          string                   `json:"name"`
+	IsPersonal    bool                     `json:"is_personal"`
+	UIPermissions OrganizationUIPermissions `json:"ui_permissions"`
+}
+
+type OrganizationEditPredictionConfiguration struct {
+	IsEnabled        bool `json:"is_enabled"`
+	IsFeedbackEnabled bool `json:"is_feedback_enabled"`
+}
+
+type OrganizationConfiguration struct {
+	IsZedModelProviderEnabled  bool                                 `json:"is_zed_model_provider_enabled"`
+	IsAgentThreadFeedbackEnabled bool                               `json:"is_agent_thread_feedback_enabled"`
+	IsCollaborationEnabled      bool                                 `json:"is_collaboration_enabled"`
+	EditPrediction             OrganizationEditPredictionConfiguration `json:"edit_prediction"`
+}
+
 type GetAuthenticatedUserResponse struct {
-	User         AuthenticatedUser `json:"user"`
-	FeatureFlags []string          `json:"feature_flags"`
-	Plan         PlanInfo          `json:"plan"`
+	User                       AuthenticatedUser                      `json:"user"`
+	FeatureFlags               []string                               `json:"feature_flags"`
+	Organizations              []Organization                         `json:"organizations"`
+	DefaultOrganizationID      *OrganizationID                        `json:"default_organization_id"`
+	PlansByOrganization        map[OrganizationID]Plan                `json:"plans_by_organization"`
+	ConfigurationByOrganization map[OrganizationID]OrganizationConfiguration `json:"configuration_by_organization"`
+	Plan                       PlanInfo                               `json:"plan"`
 }
 
 type AuthenticatedUser struct {
-	ID            int     `json:"id"`
-	MetricsID     string  `json:"metrics_id"`
-	AvatarURL     string  `json:"avatar_url"`
-	GithubLogin   string  `json:"github_login"`
-	Name          *string `json:"name"`
-	IsStaff       bool    `json:"is_staff"`
-	AcceptedTosAt *string `json:"accepted_tos_at"`
+	IDV2                   string  `json:"id_v2"`
+	LegacyUserID           int     `json:"legacy_user_id"`
+	MetricsID              string  `json:"metrics_id"`
+	Username               string  `json:"username"`
+	AvatarURL              string  `json:"avatar_url"`
+	GithubLogin            string  `json:"github_login"`
+	Name                   *string `json:"name"`
+	IsStaff                bool    `json:"is_staff"`
+	AcceptedTosAt          *string `json:"accepted_tos_at"`
+	HasConnectedToCollabOnce bool  `json:"has_connected_to_collab_once"`
 }
 
+type Plan string
+
+const (
+	ZedFree     Plan = "zed_free"
+	ZedPro      Plan = "zed_pro"
+	ZedProTrial Plan = "zed_pro_trial"
+	ZedBusiness Plan = "zed_business"
+	ZedVip      Plan = "zed_vip"
+	ZedStudent  Plan = "zed_student"
+)
+
 type PlanInfo struct {
-	Plan                       string              `json:"plan"`
-	SubscriptionPeriod         *SubscriptionPeriod `json:"subscription_period"`
-	Usage                      CurrentUsage        `json:"usage"`
-	TrialStartedAt             *string             `json:"trial_started_at"`
-	IsUsageBasedBillingEnabled bool                `json:"is_usage_based_billing_enabled"`
-	IsAccountTooYoung          bool                `json:"is_account_too_young"`
-	HasOverdueInvoices         bool                `json:"has_overdue_invoices"`
+	Plan               Plan            `json:"plan_v3"`
+	SubscriptionPeriod *SubscriptionPeriod `json:"subscription_period"`
+	Usage              CurrentUsage    `json:"usage"`
+	TrialStartedAt     *string         `json:"trial_started_at"`
+	IsAccountTooYoung  bool            `json:"is_account_too_young"`
+	HasOverdueInvoices bool            `json:"has_overdue_invoices"`
 }
 
 type SubscriptionPeriod struct {
@@ -41,44 +83,24 @@ type AcceptTermsOfServiceResponse struct {
 	User AuthenticatedUser `json:"user"`
 }
 
-type LlmToken struct {
-	Token                  string `json:"token"`
-	SupportsEditPrediction bool   `json:"supports_edit_prediction"`
-}
+type LlmToken string
 
 type CreateLlmTokenResponse struct {
 	Token LlmToken `json:"token"`
 }
 
-type Plan int
-
-const (
-	// ZedFree is the free plan
-	ZedFree Plan = iota
-	// ZedPro is the pro plan
-	ZedPro
-	// ZedProTrial is the pro trial plan
-	ZedProTrial
-)
-
-func (p Plan) String() string {
-	plans := [...]string{"Free", "ZedPro", "ZedProTrial"}
-	return plans[p]
-}
-
-type GetSubscriptionResponse struct {
+type PlanResponse struct {
 	Plan  Plan          `json:"plan"`
 	Usage *CurrentUsage `json:"usage"`
 }
 
 type CurrentUsage struct {
-	ModelRequests   UsageData `json:"model_requests"`
 	EditPredictions UsageData `json:"edit_predictions"`
 }
 
 type UsageData struct {
 	Used  uint32 `json:"used"`
-	Limit string `json:"limit"`
+	Limit any    `json:"limit"`
 }
 
 type UsageLimit struct {
@@ -87,44 +109,63 @@ type UsageLimit struct {
 }
 
 func NewGetAuthenticatedUsersResponse() GetAuthenticatedUserResponse {
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	orgID := OrganizationID("personal")
 	return GetAuthenticatedUserResponse{
 		User: AuthenticatedUser{
-			ID:        1,
-			MetricsID: "",
-			AvatarURL: "",
-			// TODO: Fix me
-			GithubLogin:   "",
-			Name:          nil,
-			IsStaff:       false,
-			AcceptedTosAt: proto.String(time.Now().UTC().Format(time.RFC3339)),
+			IDV2:                     "1",
+			LegacyUserID:             1,
+			MetricsID:                "",
+			Username:                 "zedex",
+			AvatarURL:                "",
+			GithubLogin:              "zedex",
+			Name:                     nil,
+			IsStaff:                  true,
+			AcceptedTosAt:            proto.String(now),
+			HasConnectedToCollabOnce: true,
 		},
-		FeatureFlags: []string{},
+		FeatureFlags: []string{"zed-pro", "notebooks", "debugger", "llm-closed-beta", "thread-auto-capture"},
+		Organizations: []Organization{
+			{
+				ID:            orgID,
+				Name:          "personal",
+				IsPersonal:    true,
+				UIPermissions: OrganizationUIPermissions{CanInstallGithubApp: true},
+			},
+		},
+		DefaultOrganizationID: &orgID,
+		PlansByOrganization: map[OrganizationID]Plan{
+			orgID: ZedPro,
+		},
+		ConfigurationByOrganization: map[OrganizationID]OrganizationConfiguration{
+			orgID: {
+				IsZedModelProviderEnabled:    true,
+				IsAgentThreadFeedbackEnabled:  true,
+				IsCollaborationEnabled:       true,
+				EditPrediction: OrganizationEditPredictionConfiguration{
+					IsEnabled:        true,
+					IsFeedbackEnabled: true,
+				},
+			},
+		},
 		Plan: PlanInfo{
-			Plan:               "Free",
+			Plan:               ZedPro,
 			SubscriptionPeriod: nil,
 			Usage: CurrentUsage{
-				ModelRequests: UsageData{
-					Used:  0,
-					Limit: "unlimited",
-				},
 				EditPredictions: UsageData{
 					Used:  0,
 					Limit: "unlimited",
 				},
 			},
-			TrialStartedAt:             proto.String(time.Now().UTC().Format(time.RFC3339)),
-			IsUsageBasedBillingEnabled: false,
-			IsAccountTooYoung:          false,
-			HasOverdueInvoices:         false,
+			TrialStartedAt:     proto.String(now),
+			IsAccountTooYoung:  false,
+			HasOverdueInvoices: false,
 		},
 	}
 }
 
 func NewLLMToken() CreateLlmTokenResponse {
 	return CreateLlmTokenResponse{
-		Token: LlmToken{
-			Token:                  "le-token",
-			SupportsEditPrediction: true,
-		},
+		Token: LlmToken("le-token"),
 	}
 }

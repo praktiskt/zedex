@@ -163,22 +163,6 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			return err
 		}
 
-	case *pb.Envelope_GetPrivateUserInfo:
-		resp := pb.Envelope{
-			RespondingTo: &envelope.Id,
-			Payload: &pb.Envelope_GetPrivateUserInfoResponse{
-				GetPrivateUserInfoResponse: &pb.GetPrivateUserInfoResponse{
-					MetricsId:     "123",
-					Staff:         true,
-					Flags:         []string{"zed-pro", "notebooks", "debugger", "llm-closed-beta", "thread-auto-capture"},
-					AcceptedTosAt: proto.Uint64(1),
-				},
-			},
-		}
-		if err := pd.SendProtobuf(&resp); err != nil {
-			return err
-		}
-
 	case *pb.Envelope_GetChannelMessagesById:
 		ids := msg.GetChannelMessagesById.MessageIds
 		msgs := []*pb.ChannelMessage{}
@@ -248,18 +232,6 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			return err
 		}
 
-	case *pb.Envelope_AcceptTermsOfService:
-		resp := pb.Envelope{
-			Id:           pd.NextId(),
-			RespondingTo: &envelope.Id,
-			Payload: &pb.Envelope_AcceptTermsOfServiceResponse{
-				AcceptTermsOfServiceResponse: &pb.AcceptTermsOfServiceResponse{},
-			},
-		}
-		if err := pd.SendProtobuf(&resp); err != nil {
-			return err
-		}
-
 	case *pb.Envelope_GetNotifications:
 		log.Debug("Envelope_GetNotifications")
 
@@ -271,20 +243,6 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			Payload: &pb.Envelope_UsersResponse{
 				UsersResponse: &pb.UsersResponse{
 					Users: ru,
-				},
-			},
-		}
-		if err := pd.SendProtobuf(&resp); err != nil {
-			return err
-		}
-
-	case *pb.Envelope_GetLlmToken:
-		resp := pb.Envelope{
-			Id:           pd.NextId(),
-			RespondingTo: &envelope.Id,
-			Payload: &pb.Envelope_GetLlmTokenResponse{
-				GetLlmTokenResponse: &pb.GetLlmTokenResponse{
-					Token: "abc123",
 				},
 			},
 		}
