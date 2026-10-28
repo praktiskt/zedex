@@ -264,7 +264,8 @@ func (co *Controller) NativeAppSignin(c *gin.Context) {
 
 	// user_id must be numeric, possibly a reference to github id
 	// https://api.github.com/users/<user>
-	uid := mrand.Intn(math.MaxInt)
+	// Zed models legacy_user_id as i32, so keep our generated ids within i32 range.
+	uid := mrand.Intn(math.MaxInt32)
 	host := fmt.Sprintf("http://127.0.0.1:%s/native_app_signin?user_id=%v&access_token=%s", portStr, uid, enc)
 	c.Redirect(302, host)
 }
@@ -386,11 +387,11 @@ func (co *Controller) AuthenticatedUser(c *gin.Context) {
 	auth := c.Request.Header.Get("Authorization")
 	parts := strings.Split(auth, " ")
 	if len(parts) > 0 && parts[0] != "" {
-		if uid, err := strconv.Atoi(parts[0]); err == nil {
-			resp.User.LegacyUserID = uid
-			resp.User.IDV2 = strconv.Itoa(uid)
-			resp.User.Username = "user_" + strconv.Itoa(uid)
-			resp.User.GithubLogin = "user_" + strconv.Itoa(uid)
+		if uid, err := strconv.ParseInt(parts[0], 10, 32); err == nil {
+			resp.User.LegacyUserID = int(uid)
+			resp.User.IDV2 = strconv.FormatInt(uid, 10)
+			resp.User.Username = "user_" + strconv.FormatInt(uid, 10)
+			resp.User.GithubLogin = "user_" + strconv.FormatInt(uid, 10)
 		}
 	}
 	c.JSON(200, resp)
