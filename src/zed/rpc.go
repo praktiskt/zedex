@@ -226,6 +226,11 @@ func NewProtoDispatcher(rpc *RpcHandler, userId int) *ProtoDispatcher {
 }
 
 func (pd *ProtoDispatcher) CompressMsg(b []byte) ([]byte, error) {
+	return CompressMsg(b)
+}
+
+// CompressMsg zstd-compresses an RPC frame the same way Zed does.
+func CompressMsg(b []byte) ([]byte, error) {
 	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel((ZSTD_COMPRESSION_LEVEL)))
 	if err != nil {
 		return []byte{}, err

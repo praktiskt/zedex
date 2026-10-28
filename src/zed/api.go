@@ -13,6 +13,8 @@ type API struct {
 	enableReleaseNotes   bool
 	zedClient            Client
 	port                 int
+	// rpc allows tests to inject a preconfigured RPC handler.
+	rpc *RpcHandler
 }
 
 func NewAPI(
@@ -43,6 +45,9 @@ func (api *API) Router() *gin.Engine {
 		api.zedClient,
 		api.port,
 	)
+	if api.rpc != nil {
+		controller.rpcHandler = *api.rpc
+	}
 	router.GET("/extensions", controller.Extensions)
 	router.GET("/extensions/updates", controller.ExtensionUpdates)
 	router.GET("/extensions/:id", controller.Extension)
