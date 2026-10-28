@@ -451,6 +451,158 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			return err
 		}
 
+
+	case *pb.Envelope_RespondToChannelInvite:
+		ric := msg.RespondToChannelInvite
+		if ric.Accept {
+			rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
+				members := m[ric.ChannelId]
+				found := false
+				for _, mem := range members {
+					if mem.UserId == uint64(pd.userId) {
+						mem.Kind = pb.ChannelMember_Member
+						found = true
+					}
+				}
+				if !found {
+					members = append(members, &pb.ChannelMember{UserId: uint64(pd.userId), Kind: pb.ChannelMember_Member, Role: pb.ChannelRole_Member})
+					m[ric.ChannelId] = members
+				}
+				return m
+			})
+		} else {
+			rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
+				members := []*pb.ChannelMember{}
+				for _, mem := range m[ric.ChannelId] {
+					if mem.UserId != uint64(pd.userId) {
+						members = append(members, mem)
+					}
+				}
+				m[ric.ChannelId] = members
+				return m
+			})
+		}
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels: rpc.channels.Values(),
+				},
+			},
+		}
+		rpc.broadcastEnvelope(&update, pd.userId)
+		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_RemoveChannelMember:
+		rmc := msg.RemoveChannelMember
+		rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
+			members := []*pb.ChannelMember{}
+			for _, mem := range m[rmc.ChannelId] {
+				if mem.UserId != rmc.UserId {
+					members = append(members, mem)
+				}
+			}
+			m[rmc.ChannelId] = members
+			return m
+		})
+		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_SetChannelMemberRole:
+		smr := msg.SetChannelMemberRole
+		rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
+			for _, mem := range m[smr.ChannelId] {
+				if mem.UserId == smr.UserId {
+					mem.Role = smr.Role
+				}
+			}
+			return m
+		})
+		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_SetChannelVisibility:
+		scv := msg.SetChannelVisibility
+		rpc.channels.Transaction(func(m map[uint64]*pb.Channel) map[uint64]*pb.Channel {
+			if ch, ok := m[scv.ChannelId]; ok {
+				ch.Visibility = scv.Visibility
+				m[scv.ChannelId] = ch
+			}
+			return m
+		})
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels: rpc.channels.Values(),
+				},
+			},
+		}
+		rpc.broadcastEnvelope(&update, pd.userId)
+		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_MoveChannel:
+		mc := msg.MoveChannel
+		rpc.channels.Transaction(func(m map[uint64]*pb.Channel) map[uint64]*pb.Channel {
+			if ch, ok := m[mc.ChannelId]; ok {
+				if mc.To != 0 {
+					ch.ParentPath = append(ch.ParentPath, mc.To)
+				}
+				m[mc.ChannelId] = ch
+			}
+			return m
+		})
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels: rpc.channels.Values(),
+				},
+			},
+		}
+		rpc.broadcastEnvelope(&update, pd.userId)
+		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_ReorderChannel:
+		rc := msg.ReorderChannel
+		rpc.channels.Transaction(func(m map[uint64]*pb.Channel) map[uint64]*pb.Channel {
+			if ch, ok := m[rc.ChannelId]; ok {
+				if rc.Direction == 1 {
+					ch.ChannelOrder++
+				} else {
+					ch.ChannelOrder--
+				}
+				m[rc.ChannelId] = ch
+			}
+			return m
+		})
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels: rpc.channels.Values(),
+				},
+			},
+		}
+		rpc.broadcastEnvelope(&update, pd.userId)
+		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
 	default:
 		log.Infof("Received unmapped WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
 	}
