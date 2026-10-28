@@ -1,6 +1,7 @@
 package zed
 
 import (
+	"strconv"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -108,17 +109,25 @@ type UsageLimit struct {
 	Unlimited bool   `json:"unlimited"`
 }
 
+// NewGetAuthenticatedUsersResponse builds the response Zed expects from
+// /client/users/me. The session name is shown in Zed's title bar (as the
+// organization name) so that users can tell their sessions apart.
 func NewGetAuthenticatedUsersResponse() GetAuthenticatedUserResponse {
+	return NewGetAuthenticatedUsersResponseFor(1, "zedex", "")
+}
+
+// NewGetAuthenticatedUsersResponseFor builds a session specific response.
+func NewGetAuthenticatedUsersResponseFor(legacyUserId int, sessionName string, avatarURL string) GetAuthenticatedUserResponse {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	orgID := OrganizationID("personal")
+	orgID := OrganizationID("zedex")
 	return GetAuthenticatedUserResponse{
 		User: AuthenticatedUser{
-			IDV2:                     "1",
-			LegacyUserID:             1,
+			IDV2:                     strconv.Itoa(legacyUserId),
+			LegacyUserID:             legacyUserId,
 			MetricsID:                "",
-			Username:                 "zedex",
-			AvatarURL:                "",
-			GithubLogin:              "zedex",
+			Username:                 sessionName,
+			AvatarURL:                avatarURL,
+			GithubLogin:              sessionName,
 			Name:                     nil,
 			IsStaff:                  true,
 			AcceptedTosAt:            proto.String(now),
@@ -128,8 +137,8 @@ func NewGetAuthenticatedUsersResponse() GetAuthenticatedUserResponse {
 		Organizations: []Organization{
 			{
 				ID:            orgID,
-				Name:          "personal",
-				IsPersonal:    true,
+				Name:          sessionName,
+				IsPersonal:    false,
 				UIPermissions: OrganizationUIPermissions{CanInstallGithubApp: true},
 			},
 		},

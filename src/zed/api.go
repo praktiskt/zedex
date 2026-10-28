@@ -84,5 +84,6 @@ func (api *API) Router() *gin.Engine {
 	router.GET("/client/users/me", controller.AuthenticatedUser)
 
 	router.GET("/account", controller.Account)
+	router.GET("/avatar/:id", controller.Avatar)
 	return router
 }

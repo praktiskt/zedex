@@ -383,19 +383,28 @@ func (co *Controller) ConnectWebSocket(c *gin.Context) {
 
 
 func (co *Controller) AuthenticatedUser(c *gin.Context) {
-	resp := NewGetAuthenticatedUsersResponse()
 	auth := c.Request.Header.Get("Authorization")
 	parts := strings.Split(auth, " ")
+
+	var legacyUserId int64 = 1
 	if len(parts) > 0 && parts[0] != "" {
 		if uid, err := strconv.ParseUint(parts[0], 10, 64); err == nil {
 			// Zed truncates credentials to u32 for the cloud API and models
 			// legacy_user_id as i32, so canonicalize the id the same way here.
-			legacy := int64(CanonicalUserID(uid))
-			resp.User.LegacyUserID = int(legacy)
-			resp.User.IDV2 = strconv.FormatInt(legacy, 10)
-			resp.User.Username = "user_" + strconv.FormatInt(legacy, 10)
-			resp.User.GithubLogin = "user_" + strconv.FormatInt(legacy, 10)
+			legacyUserId = int64(CanonicalUserID(uid))
 		}
 	}
+
+	name, _, _ := identityFor(uint64(legacyUserId))
+	resp := NewGetAuthenticatedUsersResponseFor(int(legacyUserId), name, co.avatarURL(c, uint64(legacyUserId)))
 	c.JSON(200, resp)
+}
+
+// avatarURL returns the URL of the avatar zedex serves for a user.
+func (co *Controller) avatarURL(c *gin.Context, userId uint64) string {
+	base := utils.EnvWithFallback("BASE_URL", fmt.Sprintf("http://127.0.0.1:%v", co.port))
+	if host := c.Request.Host; host != "" && !strings.HasPrefix(base, "http://127.0.0.1") {
+		base = "http://" + host
+	}
+	return fmt.Sprintf("%s/avatar/%d", base, userId)
 }

@@ -3,7 +3,6 @@ package zed
 import (
 	"bytes"
 	"crypto/rand"
-	"fmt"
 	"io"
 	"encoding/base64"
 	"net/http"
@@ -326,10 +325,11 @@ func (rpc *RpcHandler) usersForChannel(channelId uint64) []*pb.User {
 	for _, m := range members {
 		u := rpc.users.Get(m.UserId)
 		if u == nil {
+			name, _, _ := identityFor(m.UserId)
 			u = &pb.User{
 				Id:          m.UserId,
-				Username:    fmt.Sprintf("user_%d", m.UserId),
-				GithubLogin: fmt.Sprintf("user_%d", m.UserId),
+				Username:    name,
+				GithubLogin: name,
 			}
 			rpc.users.Set(m.UserId, u)
 		}
@@ -761,10 +761,11 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 	case *pb.Envelope_InviteChannelMember:
 		req := msg.InviteChannelMember
 		if !rpc.users.Exists(req.UserId) {
+			name, _, _ := identityFor(req.UserId)
 			rpc.users.Set(req.UserId, &pb.User{
 				Id:          req.UserId,
-				Username:    fmt.Sprintf("user_%d", req.UserId),
-				GithubLogin: fmt.Sprintf("user_%d", req.UserId),
+				Username:    name,
+				GithubLogin: name,
 			})
 		}
 		inviteeChannels := pb.Envelope{
@@ -913,7 +914,23 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 				return m
 			})
 		}
-		update := pb.Envelope{
+		// The client keeps the invitation in its list until the server tells it
+		// that the invitation was resolved.
+		resolved := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels:               rpc.channels.Values(),
+					RemoveChannelInvitations: []uint64{ric.ChannelId},
+				},
+			},
+		}
+		if err := pd.SendProtobuf(&resolved); err != nil {
+			return err
+		}
+		rpc.sendUserChannels(uint64(pd.userId))
+
+		broadcast := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
 				UpdateChannels: &pb.UpdateChannels{
@@ -921,8 +938,8 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 				},
 			},
 		}
-		rpc.broadcastEnvelope(&update, pd.userId)
-		rpc.sendUserChannels(uint64(pd.userId))
+		rpc.broadcastEnvelope(&broadcast, pd.userId)
+
 		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
@@ -1133,7 +1150,7 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 
 	// TODO: Transaction
 	if !rpc.users.Exists(uint64(userId)) {
-		name := rpc.nameGenerator.Generate()
+		name, _, _ := identityFor(uint64(userId))
 		u := &pb.User{
 			Id:          uint64(userId),
 			Username:    name,
