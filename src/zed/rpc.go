@@ -108,6 +108,20 @@ func (pd *ProtoDispatcher) NextId() uint32 {
 	return pd.rpc.NextId()
 }
 
+
+
+func (rpc *RpcHandler) broadcastEnvelope(env *pb.Envelope, except int) {
+	for _, uid := range rpc.sockets.Keys() {
+		if uid == except {
+			continue
+		}
+		pd := NewProtoDispatcher(rpc, uid)
+		if err := pd.SendProtobuf(env); err != nil {
+			log.Errorf("broadcast failed for user %v: %v", uid, err)
+		}
+	}
+}
+
 func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
 	for {
 		_, message, err := rpc.sockets.Get(pd.userId).ReadMessage()
@@ -198,6 +212,17 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			return m
 		})
 
+		broadcast := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_ChannelMessageSent{
+				ChannelMessageSent: &pb.ChannelMessageSent{
+					ChannelId: scm.ChannelId,
+					Message:   channelMsg,
+				},
+			},
+		}
+		rpc.broadcastEnvelope(&broadcast, pd.userId)
+
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
@@ -268,6 +293,16 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			return m
 		})
 
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels: rpc.channels.Values(),
+				},
+			},
+		}
+		rpc.broadcastEnvelope(&update, pd.userId)
+
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
@@ -280,6 +315,9 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
+
+	case *pb.Envelope_JoinChannel:
+		log.Debug("Envelope_JoinChannel")
 
 	case *pb.Envelope_JoinChannelChat:
 		jcc := msg.JoinChannelChat
@@ -318,17 +356,70 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			return m
 		})
 
-	case *pb.Envelope_JoinChannel:
-		// jc := envelope.Payload.(*pb.Envelope_JoinChannel).JoinChannel
-		// resp := pb.Envelope{
-		// 	RespondingTo: &envelope.Id,
-		// 	Payload: &pb.Envelope_JoinChannelChatResponse{
-		// 		JoinChannelChatResponse: &pb.JoinChannelChatResponse{},
-		// 	},
-		// }
-		// if err := rpc.SendProtobuf(connId, &resp); err != nil {
-		// 	return err
-		// }
+
+	case *pb.Envelope_GetChannelMessages:
+		gcm := msg.GetChannelMessages
+		resp := pb.Envelope{
+			Id:           pd.NextId(),
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_GetChannelMessagesResponse{
+				GetChannelMessagesResponse: &pb.GetChannelMessagesResponse{
+					Messages: rpc.channelMessages.Get(gcm.ChannelId),
+				},
+			},
+		}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_RenameChannel:
+		rc := msg.RenameChannel
+		rpc.channels.Transaction(func(m map[uint64]*pb.Channel) map[uint64]*pb.Channel {
+			if ch, ok := m[rc.ChannelId]; ok {
+				ch.Name = rc.Name
+				m[rc.ChannelId] = ch
+			}
+			return m
+		})
+		resp := pb.Envelope{
+			Id:           pd.NextId(),
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_RenameChannelResponse{
+				RenameChannelResponse: &pb.RenameChannelResponse{
+					Channel: rpc.channels.Get(rc.ChannelId),
+				},
+			},
+		}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_DeleteChannel:
+		dc := msg.DeleteChannel
+		rpc.channels.Delete(dc.ChannelId)
+		rpc.channelMessages.Delete(dc.ChannelId)
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels: rpc.channels.Values(),
+				},
+			},
+		}
+		rpc.broadcastEnvelope(&update, pd.userId)
+
+	case *pb.Envelope_RejoinChannelBuffers:
+		resp := pb.Envelope{
+			Id:           pd.NextId(),
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_RejoinChannelBuffersResponse{
+				RejoinChannelBuffersResponse: &pb.RejoinChannelBuffersResponse{},
+			},
+		}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
 	default:
 		log.Infof("Received unmapped WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
 	}
