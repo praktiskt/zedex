@@ -285,8 +285,11 @@ func (co *Controller) Account(c *gin.Context) {
 	c.Data(200,
 		"text/html; charset=utf-8",
 		[]byte(`<html>
-		<body style="background-color: #1e1e2e; color: #ffffff; text-align: center; display: flex; justify-content: center; align-items: center">
-			<p>You are logged in anonymously with Zedex.</p>
+		<body style="background-color: #1e1e2e; color: #ffffff; text-align: center; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
+			<div>
+				<h1>Signed in anonymously to Zedex</h1>
+				<p>No GitHub login required. You can close this tab and return to Zed.</p>
+			</div>
 		</body>
 		</html>`,
 		),
