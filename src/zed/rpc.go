@@ -222,6 +222,7 @@ func NewProtoDispatcher(rpc *RpcHandler, userId int) *ProtoDispatcher {
 	return &ProtoDispatcher{
 		rpc:    rpc,
 		userId: userId,
+		peerId: &pb.PeerId{Id: uint32(userId)},
 	}
 }
 
@@ -259,10 +260,14 @@ func (pd *ProtoDispatcher) SendProtobuf(protobuf protoreflect.ProtoMessage) erro
 }
 
 func (pd *ProtoDispatcher) SendHello() error {
+	peerId := pd.peerId
+	if peerId == nil {
+		peerId = &pb.PeerId{Id: uint32(pd.userId)}
+	}
 	envelope := pb.Envelope{
 		Payload: &pb.Envelope_Hello{
 			Hello: &pb.Hello{
-				PeerId: &pb.PeerId{Id: uint32(pd.userId)},
+				PeerId: peerId,
 			},
 		},
 	}
@@ -1079,7 +1084,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		log.Debug("Envelope_AckBufferOperation")
 
 	default:
-		log.Infof("Received unmapped WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
+		log.Debugf("Received unmapped WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
 	}
 	return nil
 }
@@ -1138,6 +1143,7 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 		log.Debugf("added a user, current users: %v", len(rpc.users.Map()))
 	}
 	pd := NewProtoDispatcher(rpc, userId)
+	pd.peerId = &pb.PeerId{Id: uint32(userId)}
 	go rpc.handleMessages(pd)
 	go rpc.keepAlive(userId)
 	if err := pd.SendHello(); err != nil {
