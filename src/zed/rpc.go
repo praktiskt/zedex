@@ -31,6 +31,7 @@ type RpcHandler struct {
 	channels        utils.ConcurrentMap[uint64, *pb.Channel]
 	channelMembers  utils.ConcurrentMap[uint64, []*pb.ChannelMember]
 	channelMessages utils.ConcurrentMap[uint64, []*pb.ChannelMessage]
+	channelBuffers  utils.ConcurrentMap[uint64, string]
 	id              utils.ConcurrentCounter[uint32]
 	nameGenerator   namegenerator.NameGenerator
 }
@@ -42,6 +43,7 @@ func NewRpcHandler() RpcHandler {
 		channels:        utils.NewConcurrentMap[uint64, *pb.Channel](),
 		channelMembers:  utils.NewConcurrentMap[uint64, []*pb.ChannelMember](),
 		channelMessages: utils.NewConcurrentMap[uint64, []*pb.ChannelMessage](),
+		channelBuffers:  utils.NewConcurrentMap[uint64, string](),
 		id:              utils.NewConcurrentCounter[uint32](),
 		nameGenerator:   namegenerator.NewGenerator(),
 	}
@@ -256,13 +258,19 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		log.Debug("Envelope_LeaveChannelChat")
 
 	case *pb.Envelope_JoinChannelBuffer:
-		log.Debug("Envelope_JoinChannelBuffer")
+		jcb := msg.JoinChannelBuffer
+		if !rpc.channelBuffers.Exists(jcb.ChannelId) {
+			rpc.channelBuffers.Set(jcb.ChannelId, "")
+		}
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
-			Payload: &pb.Envelope_JoinChannelBuffer{
-				JoinChannelBuffer: &pb.JoinChannelBuffer{
-					ChannelId: msg.JoinChannelBuffer.ChannelId,
+			Payload: &pb.Envelope_JoinChannelBufferResponse{
+				JoinChannelBufferResponse: &pb.JoinChannelBufferResponse{
+					BufferId:   jcb.ChannelId,
+					ReplicaId:  1,
+					BaseText:   rpc.channelBuffers.Get(jcb.ChannelId),
+					Epoch:      1,
 				},
 			},
 		}
@@ -602,6 +610,23 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
+
+
+	case *pb.Envelope_UpdateChannelBuffer:
+		ucb := msg.UpdateChannelBuffer
+		broadcast := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannelBuffer{
+				UpdateChannelBuffer: ucb,
+			},
+		}
+		rpc.broadcastEnvelope(&broadcast, pd.userId)
+
+	case *pb.Envelope_LeaveChannelBuffer:
+		log.Debug("Envelope_LeaveChannelBuffer")
+
+	case *pb.Envelope_UpdateChannelBufferCollaborators:
+		log.Debug("Envelope_UpdateChannelBufferCollaborators")
 
 	default:
 		log.Infof("Received unmapped WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
