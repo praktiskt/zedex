@@ -27,6 +27,9 @@ import (
 const (
 	ZSTD_COMPRESSION_LEVEL = 4
 	WEBSOCKET_READ_LIMIT   = 1024 * 1024
+	// KEEPALIVE_INTERVAL is how often we ping the client. Zed drops collab
+	// connections that stay silent for 10 seconds.
+	KEEPALIVE_INTERVAL = 5 * time.Second
 )
 
 // zstdMagic is the frame marker of a zstd stream (RFC 8878).
@@ -1131,9 +1134,31 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 	}
 	pd := NewProtoDispatcher(rpc, userId)
 	go rpc.handleMessages(pd)
+	go rpc.keepAlive(userId)
 	if err := pd.SendHello(); err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+}
+
+// keepAlive sends websocket pings to the client. Zed disconnects a collab
+// connection when it does not receive any message for RECEIVE_TIMEOUT
+// (10 seconds), so the server has to keep the connection alive.
+func (rpc *RpcHandler) keepAlive(userId int) {
+	ticker := time.NewTicker(KEEPALIVE_INTERVAL)
+	defer ticker.Stop()
+	for range ticker.C {
+		sock := rpc.sockets.Get(userId)
+		if sock == nil {
+			return
+		}
+		sock.mu.Lock()
+		err := sock.conn.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(time.Second))
+		sock.mu.Unlock()
+		if err != nil {
+			log.Debugf("keepalive failed for user %v: %v", userId, err)
+			return
+		}
 	}
 }
