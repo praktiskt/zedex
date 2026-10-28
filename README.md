@@ -9,6 +9,7 @@ Self-hosted Zed server.
 * Serve the downloaded extension index and downloaded extensions
 * List the latest version of Zed, and store a reference to it (version+url), and its release notes
 * Log in anonymously.
+* Provide a mock collaboration RPC server (channels, users, messages).
 * (Be a transparent Zed proxy, to see what calls Zed makes)
 
 Edit prediction is configured directly in Zed using its native providers.
