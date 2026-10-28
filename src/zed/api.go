@@ -76,9 +76,7 @@ func (api *API) Router() *gin.Engine {
 		c.JSON(200, NewLLMToken())
 	})
 	router.GET("/client/users/connect", controller.ConnectWebSocket)
-	router.GET("/client/users/me", func(c *gin.Context) {
-		c.JSON(200, NewGetAuthenticatedUsersResponse())
-	})
+	router.GET("/client/users/me", controller.AuthenticatedUser)
 
 	router.GET("/account", controller.Account)
 	return router

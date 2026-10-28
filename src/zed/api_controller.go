@@ -376,3 +376,19 @@ func (co *Controller) ConnectWebSocket(c *gin.Context) {
 		}
 	}
 }
+
+
+func (co *Controller) AuthenticatedUser(c *gin.Context) {
+	resp := NewGetAuthenticatedUsersResponse()
+	auth := c.Request.Header.Get("Authorization")
+	parts := strings.Split(auth, " ")
+	if len(parts) > 0 && parts[0] != "" {
+		if uid, err := strconv.Atoi(parts[0]); err == nil {
+			resp.User.LegacyUserID = uid
+			resp.User.IDV2 = strconv.Itoa(uid)
+			resp.User.Username = "user_" + strconv.Itoa(uid)
+			resp.User.GithubLogin = "user_" + strconv.Itoa(uid)
+		}
+	}
+	c.JSON(200, resp)
+}
