@@ -18,6 +18,7 @@ import (
 	"zedex/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 )
 
@@ -358,4 +359,20 @@ func (co *Controller) Extension(c *gin.Context) {
 		}
 	}
 	c.JSON(200, filtered.AsWrapped())
+}
+
+
+func (co *Controller) ConnectWebSocket(c *gin.Context) {
+	upgrader := websocket.Upgrader{}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	defer conn.Close()
+	for {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			break
+		}
+	}
 }
