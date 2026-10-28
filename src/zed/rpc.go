@@ -2,6 +2,7 @@ package zed
 
 import (
 	"crypto/rand"
+	"fmt"
 	"encoding/base64"
 	"net/http"
 	"strconv"
@@ -142,9 +143,16 @@ func (rpc *RpcHandler) usersForChannel(channelId uint64) []*pb.User {
 	members := rpc.channelMembers.Get(channelId)
 	users := []*pb.User{}
 	for _, m := range members {
-		if u := rpc.users.Get(m.UserId); u != nil {
-			users = append(users, u)
+		u := rpc.users.Get(m.UserId)
+		if u == nil {
+			u = &pb.User{
+				Id:          m.UserId,
+				Username:    fmt.Sprintf("user_%d", m.UserId),
+				GithubLogin: fmt.Sprintf("user_%d", m.UserId),
+			}
+			rpc.users.Set(m.UserId, u)
 		}
+		users = append(users, u)
 	}
 	return users
 }
@@ -439,6 +447,13 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 
 	case *pb.Envelope_InviteChannelMember:
 		req := msg.InviteChannelMember
+		if !rpc.users.Exists(req.UserId) {
+			rpc.users.Set(req.UserId, &pb.User{
+				Id:          req.UserId,
+				Username:    fmt.Sprintf("user_%d", req.UserId),
+				GithubLogin: fmt.Sprintf("user_%d", req.UserId),
+			})
+		}
 		rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
 			members := m[req.ChannelId]
 			found := false
@@ -453,7 +468,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			}
 			return m
 		})
-		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
@@ -584,7 +599,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
-		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
@@ -601,7 +616,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			m[rmc.ChannelId] = members
 			return m
 		})
-		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
@@ -616,7 +631,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			}
 			return m
 		})
-		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
@@ -639,7 +654,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
-		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
@@ -664,7 +679,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
-		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
@@ -691,7 +706,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
-		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
@@ -801,9 +816,11 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 
 	// TODO: Transaction
 	if !rpc.users.Exists(uint64(userId)) {
+		name := rpc.nameGenerator.Generate()
 		u := &pb.User{
 			Id:          uint64(userId),
-			GithubLogin: rpc.nameGenerator.Generate(),
+			Username:    name,
+			GithubLogin: name,
 		}
 		rpc.users.Set(uint64(userId), u)
 		log.Debugf("added a user, current users: %v", len(rpc.users.Map()))
