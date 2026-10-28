@@ -180,6 +180,42 @@ func collabProtos(ids []uint64) []*pb.Collaborator {
 	return out
 }
 
+
+func (rpc *RpcHandler) membershipsForUser(userId uint64) []*pb.ChannelMembership {
+	memberships := []*pb.ChannelMembership{}
+	for _, ch := range rpc.channels.Values() {
+		for _, mem := range rpc.channelMembers.Get(ch.Id) {
+			if mem.UserId != userId {
+				continue
+			}
+			if mem.Kind == pb.ChannelMember_Invitee {
+				continue
+			}
+			memberships = append(memberships, &pb.ChannelMembership{
+				ChannelId: ch.Id,
+				Role:      mem.Role,
+			})
+			break
+		}
+	}
+	return memberships
+}
+
+func (rpc *RpcHandler) sendUserChannels(userId uint64) {
+	pd := NewProtoDispatcher(rpc, int(userId))
+	env := pb.Envelope{
+		Id: pd.NextId(),
+		Payload: &pb.Envelope_UpdateUserChannels{
+			UpdateUserChannels: &pb.UpdateUserChannels{
+				ChannelMemberships: rpc.membershipsForUser(userId),
+			},
+		},
+	}
+	if err := pd.SendProtobuf(&env); err != nil {
+		log.Errorf("failed to send user channels to %v: %v", userId, err)
+	}
+}
+
 func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
 	for {
 		_, message, err := rpc.sockets.Get(pd.userId).ReadMessage()
@@ -368,7 +404,18 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		}
 
 	case *pb.Envelope_SubscribeToChannels:
-		log.Debug("Envelope_SubscribeToChannels")
+		rpc.sendUserChannels(uint64(pd.userId))
+		channels := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels: rpc.channels.Values(),
+				},
+			},
+		}
+		if err := pd.SendProtobuf(&channels); err != nil {
+			return err
+		}
 
 	case *pb.Envelope_CreateChannel:
 		ccr := msg.CreateChannel
@@ -397,6 +444,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
+		rpc.sendUserChannels(uint64(pd.userId))
 
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
@@ -412,7 +460,56 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		}
 
 	case *pb.Envelope_JoinChannel:
-		log.Debug("Envelope_JoinChannel")
+		jc := msg.JoinChannel
+		channel := rpc.channels.Get(jc.ChannelId)
+		if channel == nil {
+			resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
+			if err := pd.SendProtobuf(&resp); err != nil {
+				return err
+			}
+			break
+		}
+		role := pb.ChannelRole_Guest
+		rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
+			members := m[jc.ChannelId]
+			found := false
+			for _, mem := range members {
+				if mem.UserId == uint64(pd.userId) {
+					found = true
+					if mem.Kind == pb.ChannelMember_Member {
+						role = mem.Role
+					}
+				}
+			}
+			if !found {
+				members = append(members, &pb.ChannelMember{UserId: uint64(pd.userId), Kind: pb.ChannelMember_Member, Role: role})
+				m[jc.ChannelId] = members
+			}
+			return m
+		})
+		rpc.sendUserChannels(uint64(pd.userId))
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels: rpc.channels.Values(),
+				},
+			},
+		}
+		rpc.broadcastEnvelope(&update, pd.userId)
+		resp := pb.Envelope{
+			Id:           pd.NextId(),
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_JoinRoomResponse{
+				JoinRoomResponse: &pb.JoinRoomResponse{
+					Room:      &pb.Room{Id: jc.ChannelId},
+					ChannelId: proto.Uint64(jc.ChannelId),
+				},
+			},
+		}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
 
 	case *pb.Envelope_JoinChannelChat:
 		jcc := msg.JoinChannelChat
@@ -453,6 +550,19 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 				Username:    fmt.Sprintf("user_%d", req.UserId),
 				GithubLogin: fmt.Sprintf("user_%d", req.UserId),
 			})
+		}
+		inviteeChannels := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateChannels{
+				UpdateChannels: &pb.UpdateChannels{
+					Channels:          []*pb.Channel{rpc.channels.Get(req.ChannelId)},
+					ChannelInvitations: []*pb.Channel{rpc.channels.Get(req.ChannelId)},
+				},
+			},
+		}
+		inviteePD := NewProtoDispatcher(rpc, int(req.UserId))
+		if err := inviteePD.SendProtobuf(&inviteeChannels); err != nil {
+			log.Errorf("failed to notify invitee %v: %v", req.UserId, err)
 		}
 		rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
 			members := m[req.ChannelId]
@@ -578,6 +688,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 				}
 				return m
 			})
+			rpc.sendUserChannels(uint64(pd.userId))
 		} else {
 			rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
 				members := []*pb.ChannelMember{}
