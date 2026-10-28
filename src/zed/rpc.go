@@ -122,6 +122,19 @@ func (rpc *RpcHandler) broadcastEnvelope(env *pb.Envelope, except int) {
 	}
 }
 
+
+
+func (rpc *RpcHandler) usersForChannel(channelId uint64) []*pb.User {
+	members := rpc.channelMembers.Get(channelId)
+	users := []*pb.User{}
+	for _, m := range members {
+		if u := rpc.users.Get(m.UserId); u != nil {
+			users = append(users, u)
+		}
+	}
+	return users
+}
+
 func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
 	for {
 		_, message, err := rpc.sockets.Get(pd.userId).ReadMessage()
@@ -292,6 +305,9 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			}
 			return m
 		})
+		rpc.channelMembers.Set(channel.Id, []*pb.ChannelMember{
+			{UserId: uint64(pd.userId), Kind: pb.ChannelMember_Member, Role: pb.ChannelRole_Admin},
+		})
 
 		update := pb.Envelope{
 			Id: pd.NextId(),
@@ -342,6 +358,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			Payload: &pb.Envelope_GetChannelMembersResponse{
 				GetChannelMembersResponse: &pb.GetChannelMembersResponse{
 					Members: rpc.channelMembers.Get(gcm.ChannelId),
+					Users:   rpc.usersForChannel(gcm.ChannelId),
 				},
 			},
 		}
@@ -352,9 +369,23 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 	case *pb.Envelope_InviteChannelMember:
 		req := msg.InviteChannelMember
 		rpc.channelMembers.Transaction(func(m map[uint64][]*pb.ChannelMember) map[uint64][]*pb.ChannelMember {
-			m[req.UserId] = append(m[req.UserId], &pb.ChannelMember{UserId: req.UserId, Kind: pb.ChannelMember_Member, Role: pb.ChannelRole_Admin})
+			members := m[req.ChannelId]
+			found := false
+			for _, mem := range members {
+				if mem.UserId == req.UserId {
+					found = true
+				}
+			}
+			if !found {
+				members = append(members, &pb.ChannelMember{UserId: req.UserId, Kind: pb.ChannelMember_Invitee, Role: req.Role})
+				m[req.ChannelId] = members
+			}
 			return m
 		})
+		resp := pb.Envelope{RespondingTo: &envelope.Id}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
 
 
 	case *pb.Envelope_GetChannelMessages:
