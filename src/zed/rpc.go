@@ -216,6 +216,14 @@ func (rpc *RpcHandler) sendUserChannels(userId uint64) {
 	}
 }
 
+
+
+// CanonicalUserID normalizes a user id so that the cloud API (which truncates
+// ids to u32) and the collab RPC (which uses u64) refer to the same user.
+func CanonicalUserID(id uint64) uint64 {
+	return id & 0x7fffffff
+}
+
 func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
 	for {
 		_, message, err := rpc.sockets.Get(pd.userId).ReadMessage()
@@ -710,6 +718,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
+		rpc.sendUserChannels(uint64(pd.userId))
 		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
@@ -909,12 +918,13 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 
 	// NOTE: The other part of the map ([1]) is the decrypted data from the crypto challenge.
 	connIdStr := strings.Split(auth, " ")[0]
-	userId, err := strconv.Atoi(connIdStr)
+	rawUserId, err := strconv.ParseUint(connIdStr, 10, 64)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	userId := int(CanonicalUserID(rawUserId))
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
