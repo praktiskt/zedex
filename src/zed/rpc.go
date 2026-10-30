@@ -3,8 +3,8 @@ package zed
 import (
 	"bytes"
 	"crypto/rand"
-	"io"
 	"encoding/base64"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -67,9 +67,8 @@ type RpcHandler struct {
 	notifications   *notificationsStore
 	contacts        *contactsStore
 	projects        *projectsStore
+	pendingForwards utils.ConcurrentMap[uint32, forwardedRequest]
 }
-
-
 
 // channelBufferState holds the shared state of a channel's notes buffer.
 //
@@ -216,6 +215,7 @@ func NewRpcHandler() RpcHandler {
 		notifications:   newNotificationsStore(),
 		contacts:        newContactsStore(),
 		projects:        newProjectsStore(),
+		pendingForwards: utils.NewConcurrentMap[uint32, forwardedRequest](),
 	}
 }
 
@@ -290,8 +290,6 @@ func (pd *ProtoDispatcher) NextId() uint32 {
 	return pd.rpc.NextId()
 }
 
-
-
 func (rpc *RpcHandler) broadcastEnvelope(env *pb.Envelope, except int) {
 	for _, uid := range rpc.sockets.Keys() {
 		if uid == except {
@@ -325,8 +323,6 @@ func (rpc *RpcHandler) broadcastToChannelCollaborators(channelId uint64, env *pb
 	}
 }
 
-
-
 func (rpc *RpcHandler) usersForChannel(channelId uint64) []*pb.User {
 	members := rpc.channelMembers.Get(channelId)
 	users := []*pb.User{}
@@ -345,8 +341,6 @@ func (rpc *RpcHandler) usersForChannel(channelId uint64) []*pb.User {
 	}
 	return users
 }
-
-
 
 func containsUint64(list []uint64, v uint64) bool {
 	for _, x := range list {
@@ -368,7 +362,6 @@ func collabProtos(ids []uint64) []*pb.Collaborator {
 	}
 	return out
 }
-
 
 func (rpc *RpcHandler) membershipsForUser(userId uint64) []*pb.ChannelMembership {
 	memberships := []*pb.ChannelMembership{}
@@ -404,8 +397,6 @@ func (rpc *RpcHandler) sendUserChannels(userId uint64) {
 		log.Errorf("failed to send user channels to %v: %v", userId, err)
 	}
 }
-
-
 
 // CanonicalUserID normalizes a user id so that the cloud API (which truncates
 // ids to u32) and the collab RPC (which uses u64) refer to the same user.
@@ -467,6 +458,12 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 	}
 
 	log.Debugf("[user: %v] incoming %#v", pd.userId, envelope.Payload)
+
+	// Responses to requests that we forwarded to a project host are relayed
+	// back to the original requester.
+	if rpc.relayForwardedResponse(pd, &envelope) {
+		return nil
+	}
 
 	switch msg := envelope.Payload.(type) {
 	case *pb.Envelope_Hello:
@@ -617,7 +614,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			Payload: &pb.Envelope_GetNotificationsResponse{
 				GetNotificationsResponse: &pb.GetNotificationsResponse{
 					Notifications: rpc.notifications.list(gn.GetBeforeId()),
-					Done:         true,
+					Done:          true,
 				},
 			},
 		}
@@ -949,7 +946,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
 				UpdateChannels: &pb.UpdateChannels{
-					Channels:          []*pb.Channel{rpc.channels.Get(req.ChannelId)},
+					Channels:           []*pb.Channel{rpc.channels.Get(req.ChannelId)},
 					ChannelInvitations: []*pb.Channel{rpc.channels.Get(req.ChannelId)},
 				},
 			},
@@ -976,7 +973,6 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
-
 
 	case *pb.Envelope_GetChannelMessages:
 		gcm := msg.GetChannelMessages
@@ -1059,7 +1055,6 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			return err
 		}
 
-
 	case *pb.Envelope_RespondToChannelInvite:
 		ric := msg.RespondToChannelInvite
 		if ric.Accept {
@@ -1097,7 +1092,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
 				UpdateChannels: &pb.UpdateChannels{
-					Channels:               rpc.channels.Values(),
+					Channels:                 rpc.channels.Values(),
 					RemoveChannelInvitations: []uint64{ric.ChannelId},
 				},
 			},
@@ -1228,7 +1223,6 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
-
 
 	case *pb.Envelope_UpdateChannelBuffer:
 		ucb := msg.UpdateChannelBuffer

@@ -122,6 +122,13 @@ type sharedProject struct {
 	participants []uint64
 }
 
+// hostUserId returns the client that owns (hosts) the project.
+func (p *sharedProject) hostUserId() uint64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.ownerId
+}
+
 func (p *sharedProject) addParticipant(userId uint64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

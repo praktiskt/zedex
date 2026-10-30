@@ -14,45 +14,45 @@ type OrganizationUIPermissions struct {
 }
 
 type Organization struct {
-	ID            OrganizationID           `json:"id"`
-	Name          string                   `json:"name"`
-	IsPersonal    bool                     `json:"is_personal"`
+	ID            OrganizationID            `json:"id"`
+	Name          string                    `json:"name"`
+	IsPersonal    bool                      `json:"is_personal"`
 	UIPermissions OrganizationUIPermissions `json:"ui_permissions"`
 }
 
 type OrganizationEditPredictionConfiguration struct {
-	IsEnabled        bool `json:"is_enabled"`
+	IsEnabled         bool `json:"is_enabled"`
 	IsFeedbackEnabled bool `json:"is_feedback_enabled"`
 }
 
 type OrganizationConfiguration struct {
-	IsZedModelProviderEnabled  bool                                 `json:"is_zed_model_provider_enabled"`
-	IsAgentThreadFeedbackEnabled bool                               `json:"is_agent_thread_feedback_enabled"`
-	IsCollaborationEnabled      bool                                 `json:"is_collaboration_enabled"`
-	EditPrediction             OrganizationEditPredictionConfiguration `json:"edit_prediction"`
+	IsZedModelProviderEnabled    bool                                    `json:"is_zed_model_provider_enabled"`
+	IsAgentThreadFeedbackEnabled bool                                    `json:"is_agent_thread_feedback_enabled"`
+	IsCollaborationEnabled       bool                                    `json:"is_collaboration_enabled"`
+	EditPrediction               OrganizationEditPredictionConfiguration `json:"edit_prediction"`
 }
 
 type GetAuthenticatedUserResponse struct {
-	User                       AuthenticatedUser                      `json:"user"`
-	FeatureFlags               []string                               `json:"feature_flags"`
-	Organizations              []Organization                         `json:"organizations"`
-	DefaultOrganizationID      *OrganizationID                        `json:"default_organization_id"`
-	PlansByOrganization        map[OrganizationID]Plan                `json:"plans_by_organization"`
+	User                        AuthenticatedUser                            `json:"user"`
+	FeatureFlags                []string                                     `json:"feature_flags"`
+	Organizations               []Organization                               `json:"organizations"`
+	DefaultOrganizationID       *OrganizationID                              `json:"default_organization_id"`
+	PlansByOrganization         map[OrganizationID]Plan                      `json:"plans_by_organization"`
 	ConfigurationByOrganization map[OrganizationID]OrganizationConfiguration `json:"configuration_by_organization"`
-	Plan                       PlanInfo                               `json:"plan"`
+	Plan                        PlanInfo                                     `json:"plan"`
 }
 
 type AuthenticatedUser struct {
-	IDV2                   string  `json:"id_v2"`
-	LegacyUserID           int     `json:"legacy_user_id"`
-	MetricsID              string  `json:"metrics_id"`
-	Username               string  `json:"username"`
-	AvatarURL              string  `json:"avatar_url"`
-	GithubLogin            string  `json:"github_login"`
-	Name                   *string `json:"name"`
-	IsStaff                bool    `json:"is_staff"`
-	AcceptedTosAt          *string `json:"accepted_tos_at"`
-	HasConnectedToCollabOnce bool  `json:"has_connected_to_collab_once"`
+	IDV2                     string  `json:"id_v2"`
+	LegacyUserID             int     `json:"legacy_user_id"`
+	MetricsID                string  `json:"metrics_id"`
+	Username                 string  `json:"username"`
+	AvatarURL                string  `json:"avatar_url"`
+	GithubLogin              string  `json:"github_login"`
+	Name                     *string `json:"name"`
+	IsStaff                  bool    `json:"is_staff"`
+	AcceptedTosAt            *string `json:"accepted_tos_at"`
+	HasConnectedToCollabOnce bool    `json:"has_connected_to_collab_once"`
 }
 
 type Plan string
@@ -67,12 +67,12 @@ const (
 )
 
 type PlanInfo struct {
-	Plan               Plan            `json:"plan_v3"`
+	Plan               Plan                `json:"plan_v3"`
 	SubscriptionPeriod *SubscriptionPeriod `json:"subscription_period"`
-	Usage              CurrentUsage    `json:"usage"`
-	TrialStartedAt     *string         `json:"trial_started_at"`
-	IsAccountTooYoung  bool            `json:"is_account_too_young"`
-	HasOverdueInvoices bool            `json:"has_overdue_invoices"`
+	Usage              CurrentUsage        `json:"usage"`
+	TrialStartedAt     *string             `json:"trial_started_at"`
+	IsAccountTooYoung  bool                `json:"is_account_too_young"`
+	HasOverdueInvoices bool                `json:"has_overdue_invoices"`
 }
 
 type SubscriptionPeriod struct {
@@ -149,10 +149,10 @@ func NewGetAuthenticatedUsersResponseFor(legacyUserId int, sessionName string, a
 		ConfigurationByOrganization: map[OrganizationID]OrganizationConfiguration{
 			orgID: {
 				IsZedModelProviderEnabled:    true,
-				IsAgentThreadFeedbackEnabled:  true,
+				IsAgentThreadFeedbackEnabled: true,
 				IsCollaborationEnabled:       true,
 				EditPrediction: OrganizationEditPredictionConfiguration{
-					IsEnabled:        true,
+					IsEnabled:         true,
 					IsFeedbackEnabled: true,
 				},
 			},

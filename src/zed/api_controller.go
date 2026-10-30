@@ -7,10 +7,11 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"math"
 	mrand "math/rand"
-	"io"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -30,7 +31,7 @@ type Controller struct {
 	enableReleases       bool
 	enableReleaseNotes   bool
 
-	rpcHandler        RpcHandler
+	rpcHandler RpcHandler
 }
 
 func NewController(
@@ -135,8 +136,7 @@ func (co *Controller) DownloadExtension(c *gin.Context) {
 	}
 	id := c.Param("id")
 
-	// TODO: Do we care about version?
-	// minSchemaVersion := c.DefaultQuery("min_schema_version", "0")
+	// TODO: Do we care about version?	// minSchemaVersion := c.DefaultQuery("min_schema_version", "0")
 	// minSchemaVersionInt, err := strconv.Atoi(minSchemaVersion)
 	// if err != nil {
 	// 	c.JSON(400, gin.H{
@@ -160,6 +160,14 @@ func (co *Controller) DownloadExtension(c *gin.Context) {
 	}
 
 	if err != nil {
+		if co.enableExtensionStore && os.IsNotExist(err) {
+			// The extension has not been downloaded into the local cache.
+			c.JSON(404, gin.H{
+				"error":   "Not Found",
+				"message": fmt.Sprintf("extension %q is not in the local cache", id),
+			})
+			return
+		}
 		logrus.Error(err)
 		c.JSON(500, gin.H{
 			"error":   "Internal Server Error",
@@ -308,7 +316,6 @@ func (co *Controller) HandleWebSocketRequest(c *gin.Context) {
 	co.rpcHandler.HandleRequest(c)
 }
 
-
 func (co *Controller) ExtensionUpdates(c *gin.Context) {
 	if !co.enableExtensionStore {
 		u := co.zed.apiHost + "/extensions/updates"
@@ -328,7 +335,6 @@ func (co *Controller) ExtensionUpdates(c *gin.Context) {
 	}
 	c.JSON(200, wrappedExtensions{Data: Extensions{}})
 }
-
 
 func (co *Controller) Extension(c *gin.Context) {
 	id := c.Param("id")
@@ -365,7 +371,6 @@ func (co *Controller) Extension(c *gin.Context) {
 	c.JSON(200, filtered.AsWrapped())
 }
 
-
 func (co *Controller) ConnectWebSocket(c *gin.Context) {
 	upgrader := websocket.Upgrader{}
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -380,7 +385,6 @@ func (co *Controller) ConnectWebSocket(c *gin.Context) {
 		}
 	}
 }
-
 
 func (co *Controller) AuthenticatedUser(c *gin.Context) {
 	auth := c.Request.Header.Get("Authorization")

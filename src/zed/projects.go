@@ -82,12 +82,12 @@ func (rpc *RpcHandler) handleJoinProject(pd *ProtoDispatcher, envelope *pb.Envel
 		RespondingTo: &envelope.Id,
 		Payload: &pb.Envelope_JoinProjectResponse{
 			JoinProjectResponse: &pb.JoinProjectResponse{
-				ProjectId:    project.id,
-				ReplicaId:    uint32(pd.userId),
-				Worktrees:    project.worktrees,
+				ProjectId:     project.id,
+				ReplicaId:     uint32(pd.userId),
+				Worktrees:     project.worktrees,
 				Collaborators: collaborators,
-				Role:         pb.ChannelRole_Member,
-				Features:     project.features,
+				Role:          pb.ChannelRole_Member,
+				Features:      project.features,
 			},
 		},
 	}
@@ -148,6 +148,11 @@ func (rpc *RpcHandler) handleCreateBufferForPeer(pd *ProtoDispatcher, envelope *
 // project and records them so that clients joining later can catch up.
 func (rpc *RpcHandler) handleUpdateBuffer(pd *ProtoDispatcher, envelope *pb.Envelope, msg *pb.Envelope_UpdateBuffer) error {
 	ub := msg.UpdateBuffer
+	if forwarded, err := rpc.forwardToHost(pd, envelope, ub.GetProjectId()); err != nil {
+		return err
+	} else if forwarded {
+		return nil
+	}
 	state := rpc.projectBuffers.Get(ub.GetBufferId())
 	if state == nil {
 		state = newProjectBufferState()
@@ -172,6 +177,11 @@ func (rpc *RpcHandler) handleUpdateBuffer(pd *ProtoDispatcher, envelope *pb.Enve
 // and returns the buffer id the client should use.
 func (rpc *RpcHandler) handleOpenBufferByPath(pd *ProtoDispatcher, envelope *pb.Envelope, msg *pb.Envelope_OpenBufferByPath) error {
 	ob := msg.OpenBufferByPath
+	if forwarded, err := rpc.forwardToHost(pd, envelope, ob.GetProjectId()); err != nil {
+		return err
+	} else if forwarded {
+		return nil
+	}
 	bufferId := rpc.nextBufferId(ob.GetProjectId(), ob.GetWorktreeId(), ob.GetPath())
 
 	resp := pb.Envelope{
@@ -186,6 +196,11 @@ func (rpc *RpcHandler) handleOpenBufferByPath(pd *ProtoDispatcher, envelope *pb.
 
 func (rpc *RpcHandler) handleOpenBufferById(pd *ProtoDispatcher, envelope *pb.Envelope, msg *pb.Envelope_OpenBufferById) error {
 	ob := msg.OpenBufferById
+	if forwarded, err := rpc.forwardToHost(pd, envelope, ob.GetProjectId()); err != nil {
+		return err
+	} else if forwarded {
+		return nil
+	}
 	resp := pb.Envelope{
 		Id:           pd.NextId(),
 		RespondingTo: &envelope.Id,
