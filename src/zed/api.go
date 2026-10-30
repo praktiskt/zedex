@@ -85,5 +85,24 @@ func (api *API) Router() *gin.Engine {
 
 	router.GET("/account", controller.Account)
 	router.GET("/avatar/:id", controller.Avatar)
+
+	// LLM API endpoints. Zed calls these when the cloud language model
+	// provider is enabled.
+	router.GET("/models", controller.Models)
+	router.GET("/edit_prediction_experiments", controller.EditPredictionExperiments)
+	router.GET("/client/system_settings", controller.SystemSettings)
+	router.PATCH("/client/system_settings", controller.UpdateSystemSettings)
+	router.POST("/predict_edits/v2", controller.PredictEdits)
+	router.POST("/predict_edits/v3", controller.PredictEdits)
+	router.POST("/predict_edits/v4", controller.PredictEdits)
+	router.POST("/predict_edits/raw", controller.PredictEdits)
+	router.POST("/predict_edits/accept", controller.PredictEdits)
+	router.POST("/predict_edits/reject", controller.PredictEdits)
+	router.POST("/predict_edits/settled", controller.PredictEdits)
+	router.POST("/web_search", controller.WebSearch)
+	router.POST("/telemetry/events", controller.TelemetryEvents)
+	router.POST("/client/feedback/edit_prediction", controller.Feedback)
+	router.POST("/client/feedback/agent_thread", controller.Feedback)
+	router.POST("/client/feedback/agent_thread_comments", controller.Feedback)
 	return router
 }

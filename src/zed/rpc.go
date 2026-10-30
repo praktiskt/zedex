@@ -61,8 +61,12 @@ type RpcHandler struct {
 	channelMembers  utils.ConcurrentMap[uint64, []*pb.ChannelMember]
 	channelMessages utils.ConcurrentMap[uint64, []*pb.ChannelMessage]
 	channelBuffers  utils.ConcurrentMap[uint64, *channelBufferState]
+	projectBuffers  utils.ConcurrentMap[uint64, *projectBufferState]
 	id              utils.ConcurrentCounter[uint32]
 	nameGenerator   namegenerator.NameGenerator
+	notifications   *notificationsStore
+	contacts        *contactsStore
+	projects        *projectsStore
 }
 
 
@@ -206,8 +210,12 @@ func NewRpcHandler() RpcHandler {
 		channelMembers:  utils.NewConcurrentMap[uint64, []*pb.ChannelMember](),
 		channelMessages: utils.NewConcurrentMap[uint64, []*pb.ChannelMessage](),
 		channelBuffers:  utils.NewConcurrentMap[uint64, *channelBufferState](),
+		projectBuffers:  utils.NewConcurrentMap[uint64, *projectBufferState](),
 		id:              utils.NewConcurrentCounter[uint32](),
 		nameGenerator:   namegenerator.NewGenerator(),
+		notifications:   newNotificationsStore(),
+		contacts:        newContactsStore(),
+		projects:        newProjectsStore(),
 	}
 }
 
@@ -602,7 +610,176 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		}
 
 	case *pb.Envelope_GetNotifications:
-		log.Debug("Envelope_GetNotifications")
+		gn := msg.GetNotifications
+		resp := pb.Envelope{
+			Id:           pd.NextId(),
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_GetNotificationsResponse{
+				GetNotificationsResponse: &pb.GetNotificationsResponse{
+					Notifications: rpc.notifications.list(gn.GetBeforeId()),
+					Done:         true,
+				},
+			},
+		}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_AddNotification:
+		an := msg.AddNotification
+		notification := rpc.notifications.add(an.GetNotification())
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateNotification{
+				UpdateNotification: &pb.UpdateNotification{Notification: notification},
+			},
+		}
+		rpc.broadcastEnvelope(&update, pd.userId)
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_UpdateNotification:
+		un := msg.UpdateNotification
+		if notification := rpc.notifications.update(un.GetNotification()); notification != nil {
+			update := pb.Envelope{
+				Id: pd.NextId(),
+				Payload: &pb.Envelope_UpdateNotification{
+					UpdateNotification: &pb.UpdateNotification{Notification: notification},
+				},
+			}
+			rpc.broadcastEnvelope(&update, pd.userId)
+		}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_DeleteNotification:
+		dn := msg.DeleteNotification
+		rpc.notifications.remove(dn.GetNotificationId())
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_MarkNotificationRead:
+		mn := msg.MarkNotificationRead
+		if notification := rpc.notifications.update(&pb.Notification{Id: mn.GetNotificationId(), IsRead: true}); notification != nil {
+			update := pb.Envelope{
+				Id: pd.NextId(),
+				Payload: &pb.Envelope_UpdateNotification{
+					UpdateNotification: &pb.UpdateNotification{Notification: notification},
+				},
+			}
+			rpc.broadcastEnvelope(&update, pd.userId)
+		}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_RequestContact:
+		rc := msg.RequestContact
+		rpc.contacts.add(rc.GetResponderId(), uint64(pd.userId))
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateContacts{
+				UpdateContacts: &pb.UpdateContacts{
+					IncomingRequests: []*pb.IncomingContactRequest{{RequesterId: uint64(pd.userId)}},
+				},
+			},
+		}
+		responderPD := NewProtoDispatcher(rpc, int(rc.GetResponderId()))
+		if err := responderPD.SendProtobuf(&update); err != nil {
+			log.Errorf("failed to notify contact request: %v", err)
+		}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_RespondToContactRequest:
+		rr := msg.RespondToContactRequest
+		requesterId := rr.GetRequesterId()
+		if rr.GetResponse() == pb.ContactRequestResponse_Accept {
+			rpc.contacts.add(uint64(pd.userId), requesterId)
+			rpc.contacts.add(requesterId, uint64(pd.userId))
+		}
+		update := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateContacts{
+				UpdateContacts: &pb.UpdateContacts{
+					Contacts: []*pb.Contact{{UserId: uint64(pd.userId)}},
+				},
+			},
+		}
+		requesterPD := NewProtoDispatcher(rpc, int(requesterId))
+		if err := requesterPD.SendProtobuf(&update); err != nil {
+			log.Errorf("failed to notify contact response: %v", err)
+		}
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_RemoveContact:
+		rmc := msg.RemoveContact
+		rpc.contacts.remove(uint64(pd.userId), rmc.GetUserId())
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_ShowContacts:
+		contacts := []*pb.Contact{}
+		for _, id := range rpc.contacts.list(uint64(pd.userId)) {
+			contacts = append(contacts, &pb.Contact{UserId: id})
+		}
+		resp := pb.Envelope{
+			Id:           pd.NextId(),
+			RespondingTo: &envelope.Id,
+			Payload: &pb.Envelope_UpdateContacts{
+				UpdateContacts: &pb.UpdateContacts{Contacts: contacts},
+			},
+		}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_Ping:
+		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
+		if err := pd.SendProtobuf(&resp); err != nil {
+			return err
+		}
+
+	case *pb.Envelope_ShareProject:
+		return rpc.handleShareProject(pd, &envelope, msg)
+
+	case *pb.Envelope_JoinProject:
+		return rpc.handleJoinProject(pd, &envelope, msg)
+
+	case *pb.Envelope_UnshareProject:
+		return rpc.handleUnshareProject(pd, &envelope, msg)
+
+	case *pb.Envelope_LeaveProject:
+		return rpc.handleLeaveProject(pd, &envelope, msg)
+
+	case *pb.Envelope_UpdateProject:
+		return rpc.handleUpdateProject(pd, &envelope, msg)
+
+	case *pb.Envelope_CreateBufferForPeer:
+		return rpc.handleCreateBufferForPeer(pd, &envelope, msg)
+
+	case *pb.Envelope_UpdateBuffer:
+		return rpc.handleUpdateBuffer(pd, &envelope, msg)
+
+	case *pb.Envelope_OpenBufferByPath:
+		return rpc.handleOpenBufferByPath(pd, &envelope, msg)
+
+	case *pb.Envelope_OpenBufferById:
+		return rpc.handleOpenBufferById(pd, &envelope, msg)
 
 	case *pb.Envelope_FuzzySearchUsers:
 		ru := rpc.users.Values()
@@ -1101,7 +1278,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		log.Debug("Envelope_AckBufferOperation")
 
 	default:
-		log.Debugf("Received unmapped WebSocket message base64: %v", base64.StdEncoding.EncodeToString(message))
+		log.Infof("Received unmapped WebSocket message type=%T id=%v respondingTo=%v", envelope.Payload, envelope.Id, envelope.RespondingTo)
 	}
 	return nil
 }
