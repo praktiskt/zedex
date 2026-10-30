@@ -14,6 +14,16 @@ import (
 // Buffer synchronization is a CRDT: the host and the guests exchange
 // operations that carry a version vector, and the server relays them.
 
+// projectHostConnection returns the connection id of the client that hosts a
+// project, or 0 when the project is unknown.
+func (rpc *RpcHandler) projectHostConnection(projectId uint64) uint32 {
+	hostId := rpc.projects.hostUserId(projectId)
+	if hostId == 0 {
+		return 0
+	}
+	return rpc.latestConnectionId(hostId)
+}
+
 func (rpc *RpcHandler) projectParticipants(projectId uint64) []uint64 {
 	project := rpc.projects.get(projectId)
 	if project == nil {
@@ -29,12 +39,14 @@ func (rpc *RpcHandler) broadcastToProject(projectId uint64, env *pb.Envelope, ex
 		if int(uid) == except {
 			continue
 		}
-		if !rpc.sockets.Exists(int(uid)) {
-			continue
-		}
-		pd := NewProtoDispatcher(rpc, int(uid))
-		if err := pd.SendProtobuf(env); err != nil {
-			log.Errorf("broadcast to project %v failed for user %v: %v", projectId, uid, err)
+		for _, connId := range rpc.userConnections.Get(uid) {
+			pd := NewProtoDispatcherForConnection(rpc, connId)
+			if pd == nil {
+				continue
+			}
+			if err := pd.SendProtobuf(env); err != nil {
+				log.Errorf("broadcast to project %v failed for connection %v: %v", projectId, connId, err)
+			}
 		}
 	}
 }
@@ -70,11 +82,17 @@ func (rpc *RpcHandler) handleJoinProject(pd *ProtoDispatcher, envelope *pb.Envel
 
 	collaborators := []*pb.Collaborator{}
 	for _, uid := range project.participants {
-		collaborators = append(collaborators, &pb.Collaborator{
-			PeerId:    &pb.PeerId{Id: uint32(uid)},
-			ReplicaId: uint32(uid),
-			UserId:    uid,
-		})
+		for _, connId := range rpc.userConnections.Get(uid) {
+			conn := rpc.connections.Get(connId)
+			if conn == nil {
+				continue
+			}
+			collaborators = append(collaborators, &pb.Collaborator{
+				PeerId:    conn.peerId,
+				ReplicaId: connId,
+				UserId:    uid,
+			})
+		}
 	}
 
 	resp := pb.Envelope{
@@ -134,9 +152,18 @@ func (rpc *RpcHandler) handleCreateBufferForPeer(pd *ProtoDispatcher, envelope *
 	if peer == nil {
 		return nil
 	}
-	target := NewProtoDispatcher(rpc, int(peer.GetId()))
+	connId := rpc.connectionsByPeer.Get(keyForPeerId(peer))
+	if connId == 0 {
+		log.Errorf("no connection for peer %v", peer)
+		return nil
+	}
+	target := NewProtoDispatcherForConnection(rpc, connId)
+	if target == nil {
+		return nil
+	}
 	relay := pb.Envelope{
-		Id: pd.NextId(),
+		Id:               pd.NextId(),
+		OriginalSenderId: pd.peerId,
 		Payload: &pb.Envelope_CreateBufferForPeer{
 			CreateBufferForPeer: cb,
 		},
@@ -148,11 +175,8 @@ func (rpc *RpcHandler) handleCreateBufferForPeer(pd *ProtoDispatcher, envelope *
 // project and records them so that clients joining later can catch up.
 func (rpc *RpcHandler) handleUpdateBuffer(pd *ProtoDispatcher, envelope *pb.Envelope, msg *pb.Envelope_UpdateBuffer) error {
 	ub := msg.UpdateBuffer
-	if forwarded, err := rpc.forwardToHost(pd, envelope, ub.GetProjectId()); err != nil {
-		return err
-	} else if forwarded {
-		return nil
-	}
+	projectId := ub.GetProjectId()
+
 	state := rpc.projectBuffers.Get(ub.GetBufferId())
 	if state == nil {
 		state = newProjectBufferState()
@@ -160,14 +184,32 @@ func (rpc *RpcHandler) handleUpdateBuffer(pd *ProtoDispatcher, envelope *pb.Enve
 	}
 	state.addCollaborator(uint64(pd.userId), pd.peerId)
 	state.recordOperations(ub.GetOperations())
+	rpc.rememberBuffer(projectId, ub.GetBufferId())
+
+	// The host applies the operations; the guests receive them so that their
+	// buffers stay in sync. This mirrors Zed's own collab server: guests are
+	// updated directly, while the host is sent the request and answers it.
+	hostConnId := rpc.projectHostConnection(projectId)
+	isHost := hostConnId != 0 && hostConnId == pd.connId
+
+	if !isHost {
+		if forwarded, err := rpc.forwardToHost(pd, envelope, projectId); err != nil {
+			return err
+		} else if forwarded {
+			// The host answers the request; the response is relayed back to
+			// the guest by relayForwardedResponse.
+			return nil
+		}
+	}
 
 	relay := pb.Envelope{
-		Id: pd.NextId(),
+		Id:               pd.NextId(),
+		OriginalSenderId: pd.peerId,
 		Payload: &pb.Envelope_UpdateBuffer{
 			UpdateBuffer: ub,
 		},
 	}
-	rpc.broadcastToProject(ub.GetProjectId(), &relay, pd.userId)
+	rpc.broadcastBufferOperations(projectId, &relay, pd.userId)
 
 	resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 	return pd.SendProtobuf(&resp)

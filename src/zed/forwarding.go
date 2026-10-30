@@ -36,7 +36,7 @@ func (rpc *RpcHandler) forwardToHost(pd *ProtoDispatcher, envelope *pb.Envelope,
 		// The host executes the request itself.
 		return false, nil
 	}
-	if !rpc.sockets.Exists(int(hostId)) {
+	if len(rpc.userConnections.Get(hostId)) == 0 {
 		return false, nil
 	}
 
@@ -77,7 +77,11 @@ func (rpc *RpcHandler) relayForwardedResponse(pd *ProtoDispatcher, envelope *pb.
 		OriginalSenderId: envelope.OriginalSenderId,
 		Payload:          envelope.Payload,
 	}
-	if err := NewProtoDispatcher(rpc, pending.requesterId).SendProtobuf(relayed); err != nil {
+	requesterPD := NewProtoDispatcher(rpc, pending.requesterId)
+	if requesterPD == nil {
+		return true
+	}
+	if err := requesterPD.SendProtobuf(relayed); err != nil {
 		log.Errorf("failed to relay forwarded response: %v", err)
 		return true
 	}

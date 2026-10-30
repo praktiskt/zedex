@@ -176,6 +176,17 @@ func (s *projectsStore) create(ownerId uint64, worktrees []*pb.WorktreeMetadata,
 	return p
 }
 
+// hostUserId returns the user that owns (hosts) the project.
+func (s *projectsStore) hostUserId(id uint64) uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p := s.projects[id]
+	if p == nil {
+		return 0
+	}
+	return p.ownerId
+}
+
 func (s *projectsStore) get(id uint64) *sharedProject {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -186,4 +197,14 @@ func (s *projectsStore) remove(id uint64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.projects, id)
+}
+
+// projectBufferIndex keeps track of which project a buffer belongs to.
+type projectBufferIndex struct {
+	mu      sync.Mutex
+	buffers map[uint64]bufferInfo
+}
+
+func newProjectBufferIndex() *projectBufferIndex {
+	return &projectBufferIndex{buffers: map[uint64]bufferInfo{}}
 }

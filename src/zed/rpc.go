@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -34,40 +35,29 @@ const (
 // zstdMagic is the frame marker of a zstd stream (RFC 8878).
 var zstdMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
 
-// socket wraps a websocket connection with a write mutex. Gorilla websocket
-// does not allow concurrent writers, and zedex writes to a socket from
-// several goroutines (message handlers, broadcasts).
-type socket struct {
-	conn *websocket.Conn
-	mu   sync.Mutex
-}
-
-func (s *socket) write(msgType int, data []byte) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.conn.WriteMessage(msgType, data)
-}
-
-func (s *socket) writeCompressed(data []byte) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.conn.WriteMessage(websocket.BinaryMessage, data)
-}
-
 type RpcHandler struct {
-	sockets         utils.ConcurrentMap[int, *socket]
-	users           utils.ConcurrentMap[uint64, *pb.User]
-	channels        utils.ConcurrentMap[uint64, *pb.Channel]
-	channelMembers  utils.ConcurrentMap[uint64, []*pb.ChannelMember]
-	channelMessages utils.ConcurrentMap[uint64, []*pb.ChannelMessage]
-	channelBuffers  utils.ConcurrentMap[uint64, *channelBufferState]
-	projectBuffers  utils.ConcurrentMap[uint64, *projectBufferState]
-	id              utils.ConcurrentCounter[uint32]
-	nameGenerator   namegenerator.NameGenerator
-	notifications   *notificationsStore
-	contacts        *contactsStore
-	projects        *projectsStore
-	pendingForwards utils.ConcurrentMap[uint32, forwardedRequest]
+	// connections holds every open client connection, keyed by connection id.
+	connections utils.ConcurrentMap[uint32, *connection]
+	// connectionsByPeer maps a peer id to its connection.
+	connectionsByPeer utils.ConcurrentMap[peerKey, uint32]
+	// userConnections maps a user id to the connections it has open.
+	userConnections utils.ConcurrentMap[uint64, []uint32]
+	// nextConnectionId hands out connection ids.
+	nextConnectionId utils.ConcurrentCounter[uint32]
+
+	users            utils.ConcurrentMap[uint64, *pb.User]
+	channels         utils.ConcurrentMap[uint64, *pb.Channel]
+	channelMembers   utils.ConcurrentMap[uint64, []*pb.ChannelMember]
+	channelMessages  utils.ConcurrentMap[uint64, []*pb.ChannelMessage]
+	channelBuffers   utils.ConcurrentMap[uint64, *channelBufferState]
+	projectBuffers   utils.ConcurrentMap[uint64, *projectBufferState]
+	projectBufferIds *projectBufferIndex
+	id               utils.ConcurrentCounter[uint32]
+	nameGenerator    namegenerator.NameGenerator
+	notifications    *notificationsStore
+	contacts         *contactsStore
+	projects         *projectsStore
+	pendingForwards  utils.ConcurrentMap[uint32, forwardedRequest]
 }
 
 // channelBufferState holds the shared state of a channel's notes buffer.
@@ -203,33 +193,63 @@ func (s *channelBufferState) snapshot() (string, uint64, []*pb.Operation, []*pb.
 
 func NewRpcHandler() RpcHandler {
 	return RpcHandler{
-		sockets:         utils.NewConcurrentMap[int, *socket](),
-		users:           utils.NewConcurrentMap[uint64, *pb.User](),
-		channels:        utils.NewConcurrentMap[uint64, *pb.Channel](),
-		channelMembers:  utils.NewConcurrentMap[uint64, []*pb.ChannelMember](),
-		channelMessages: utils.NewConcurrentMap[uint64, []*pb.ChannelMessage](),
-		channelBuffers:  utils.NewConcurrentMap[uint64, *channelBufferState](),
-		projectBuffers:  utils.NewConcurrentMap[uint64, *projectBufferState](),
-		id:              utils.NewConcurrentCounter[uint32](),
-		nameGenerator:   namegenerator.NewGenerator(),
-		notifications:   newNotificationsStore(),
-		contacts:        newContactsStore(),
-		projects:        newProjectsStore(),
-		pendingForwards: utils.NewConcurrentMap[uint32, forwardedRequest](),
+		connections:       utils.NewConcurrentMap[uint32, *connection](),
+		connectionsByPeer: utils.NewConcurrentMap[peerKey, uint32](),
+		userConnections:   utils.NewConcurrentMap[uint64, []uint32](),
+		nextConnectionId:  utils.NewConcurrentCounter[uint32](),
+		users:             utils.NewConcurrentMap[uint64, *pb.User](),
+		channels:          utils.NewConcurrentMap[uint64, *pb.Channel](),
+		channelMembers:    utils.NewConcurrentMap[uint64, []*pb.ChannelMember](),
+		channelMessages:   utils.NewConcurrentMap[uint64, []*pb.ChannelMessage](),
+		channelBuffers:    utils.NewConcurrentMap[uint64, *channelBufferState](),
+		projectBuffers:    utils.NewConcurrentMap[uint64, *projectBufferState](),
+		projectBufferIds:  newProjectBufferIndex(),
+		id:                utils.NewConcurrentCounter[uint32](),
+		nameGenerator:     namegenerator.NewGenerator(),
+		notifications:     newNotificationsStore(),
+		contacts:          newContactsStore(),
+		projects:          newProjectsStore(),
+		pendingForwards:   utils.NewConcurrentMap[uint32, forwardedRequest](),
 	}
 }
 
+// ProtoDispatcher sends envelopes to a single client connection.
 type ProtoDispatcher struct {
-	rpc    *RpcHandler
+	rpc *RpcHandler
+	// connId is the connection the envelopes are sent to.
+	connId uint32
+	// userId is the user the connection belongs to.
 	userId int
 	peerId *pb.PeerId
 }
 
+// NewProtoDispatcher returns a dispatcher for a user. When the user has
+// several connections open, the most recent one is used.
 func NewProtoDispatcher(rpc *RpcHandler, userId int) *ProtoDispatcher {
+	connId := rpc.latestConnectionId(uint64(userId))
+	pd := &ProtoDispatcher{
+		rpc:    rpc,
+		connId: connId,
+		userId: userId,
+	}
+	if conn := rpc.connections.Get(connId); conn != nil {
+		pd.peerId = conn.peerId
+	}
+	return pd
+}
+
+// NewProtoDispatcherForConnection returns a dispatcher for a specific
+// connection.
+func NewProtoDispatcherForConnection(rpc *RpcHandler, connId uint32) *ProtoDispatcher {
+	conn := rpc.connections.Get(connId)
+	if conn == nil {
+		return nil
+	}
 	return &ProtoDispatcher{
 		rpc:    rpc,
-		userId: userId,
-		peerId: &pb.PeerId{Id: uint32(userId)},
+		connId: connId,
+		userId: int(conn.userId),
+		peerId: conn.peerId,
 	}
 }
 
@@ -251,7 +271,11 @@ func (pd *ProtoDispatcher) SendMessage(b []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := pd.rpc.sockets.Get(pd.userId).writeCompressed(bb); err != nil {
+	conn := pd.rpc.connections.Get(pd.connId)
+	if conn == nil {
+		return fmt.Errorf("connection %v is closed", pd.connId)
+	}
+	if err := conn.writeCompressed(bb); err != nil {
 		return err
 	}
 	return nil
@@ -291,13 +315,17 @@ func (pd *ProtoDispatcher) NextId() uint32 {
 }
 
 func (rpc *RpcHandler) broadcastEnvelope(env *pb.Envelope, except int) {
-	for _, uid := range rpc.sockets.Keys() {
-		if uid == except {
+	for _, connId := range rpc.connections.Keys() {
+		conn := rpc.connections.Get(connId)
+		if conn == nil || int(conn.userId) == except {
 			continue
 		}
-		pd := NewProtoDispatcher(rpc, uid)
+		pd := NewProtoDispatcherForConnection(rpc, connId)
+		if pd == nil {
+			continue
+		}
 		if err := pd.SendProtobuf(env); err != nil {
-			log.Errorf("broadcast failed for user %v: %v", uid, err)
+			log.Errorf("broadcast failed for connection %v: %v", connId, err)
 		}
 	}
 }
@@ -313,12 +341,14 @@ func (rpc *RpcHandler) broadcastToChannelCollaborators(channelId uint64, env *pb
 		if int(uid) == except {
 			continue
 		}
-		if !rpc.sockets.Exists(int(uid)) {
-			continue
-		}
-		pd := NewProtoDispatcher(rpc, int(uid))
-		if err := pd.SendProtobuf(env); err != nil {
-			log.Errorf("broadcast failed for user %v: %v", uid, err)
+		for _, connId := range rpc.userConnections.Get(uid) {
+			pd := NewProtoDispatcherForConnection(rpc, connId)
+			if pd == nil {
+				continue
+			}
+			if err := pd.SendProtobuf(env); err != nil {
+				log.Errorf("broadcast failed for connection %v: %v", connId, err)
+			}
 		}
 	}
 }
@@ -405,13 +435,15 @@ func CanonicalUserID(id uint64) uint64 {
 }
 
 func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
-	sock := rpc.sockets.Get(pd.userId)
-	conn := sock.conn
+	conn := rpc.connections.Get(pd.connId)
+	if conn == nil {
+		return
+	}
 	for {
 		// Read via NextReader + io.Copy instead of ReadMessage: gorilla's
 		// ReadMessage uses io.ReadAll, which panics when a frame is larger
 		// than the connection's internal read buffer.
-		messageType, reader, err := conn.NextReader()
+		messageType, reader, err := conn.socket.NextReader()
 		if err != nil {
 			log.Errorf("failed to read message: %v", err)
 			return
@@ -777,6 +809,30 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 
 	case *pb.Envelope_OpenBufferById:
 		return rpc.handleOpenBufferById(pd, &envelope, msg)
+
+	case *pb.Envelope_OpenNewBuffer:
+		return rpc.handleOpenNewBuffer(pd, &envelope, msg)
+
+	case *pb.Envelope_SaveBuffer:
+		return rpc.handleSaveBuffer(pd, &envelope, msg)
+
+	case *pb.Envelope_CloseBuffer:
+		return rpc.handleCloseBuffer(pd, &envelope, msg)
+
+	case *pb.Envelope_UpdateBufferFile:
+		return rpc.handleUpdateBufferFile(pd, &envelope, msg)
+
+	case *pb.Envelope_ReloadBuffers:
+		return rpc.handleReloadBuffers(pd, &envelope, msg)
+
+	case *pb.Envelope_SynchronizeBuffers:
+		return rpc.handleSynchronizeBuffers(pd, &envelope, msg)
+
+	case *pb.Envelope_AddProjectCollaborator:
+		return rpc.handleAddProjectCollaborator(pd, &envelope, msg)
+
+	case *pb.Envelope_RemoveProjectCollaborator:
+		return rpc.handleRemoveProjectCollaborator(pd, &envelope, msg)
 
 	case *pb.Envelope_FuzzySearchUsers:
 		ru := rpc.users.Values()
@@ -1316,8 +1372,24 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upgrade connection"})
 		return
 	}
-	rpc.sockets.Set(userId, &socket{conn: conn})
-	rpc.sockets.Get(userId).conn.SetReadLimit(WEBSOCKET_READ_LIMIT)
+	conn.SetReadLimit(WEBSOCKET_READ_LIMIT)
+
+	// Every connection gets its own id: Zed addresses peers by connection id,
+	// so a user may have several connections open at the same time.
+	connId := rpc.nextConnectionId.Increment().Value()
+	peerId := &pb.PeerId{OwnerId: 0, Id: connId}
+	connection := &connection{
+		id:     connId,
+		userId: uint64(userId),
+		peerId: peerId,
+		socket: conn,
+	}
+	rpc.connections.Set(connId, connection)
+	rpc.connectionsByPeer.Set(keyForPeerId(peerId), connId)
+	rpc.userConnections.Transaction(func(m map[uint64][]uint32) map[uint64][]uint32 {
+		m[uint64(userId)] = append(m[uint64(userId)], connId)
+		return m
+	})
 
 	// TODO: Transaction
 	if !rpc.users.Exists(uint64(userId)) {
@@ -1330,10 +1402,9 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 		rpc.users.Set(uint64(userId), u)
 		log.Debugf("added a user, current users: %v", len(rpc.users.Map()))
 	}
-	pd := NewProtoDispatcher(rpc, userId)
-	pd.peerId = &pb.PeerId{Id: uint32(userId)}
+	pd := NewProtoDispatcherForConnection(rpc, connId)
 	go rpc.handleMessages(pd)
-	go rpc.keepAlive(userId)
+	go rpc.keepAlive(connId)
 	if err := pd.SendHello(); err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1341,22 +1412,30 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 	}
 }
 
+// latestConnectionId returns the id of the most recently opened connection of
+// a user.
+func (rpc *RpcHandler) latestConnectionId(userId uint64) uint32 {
+	connIds := rpc.userConnections.Get(userId)
+	if len(connIds) == 0 {
+		return 0
+	}
+	return connIds[len(connIds)-1]
+}
+
 // keepAlive sends websocket pings to the client. Zed disconnects a collab
 // connection when it does not receive any message for RECEIVE_TIMEOUT
 // (10 seconds), so the server has to keep the connection alive.
-func (rpc *RpcHandler) keepAlive(userId int) {
+func (rpc *RpcHandler) keepAlive(connId uint32) {
 	ticker := time.NewTicker(KEEPALIVE_INTERVAL)
 	defer ticker.Stop()
 	for range ticker.C {
-		sock := rpc.sockets.Get(userId)
-		if sock == nil {
+		conn := rpc.connections.Get(connId)
+		if conn == nil {
 			return
 		}
-		sock.mu.Lock()
-		err := sock.conn.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(time.Second))
-		sock.mu.Unlock()
+		err := conn.writeControl(websocket.PingMessage, []byte("ping"), time.Now().Add(time.Second))
 		if err != nil {
-			log.Debugf("keepalive failed for user %v: %v", userId, err)
+			log.Debugf("keepalive failed for connection %v: %v", connId, err)
 			return
 		}
 	}
