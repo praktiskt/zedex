@@ -186,21 +186,10 @@ func (rpc *RpcHandler) handleUpdateBuffer(pd *ProtoDispatcher, envelope *pb.Enve
 	state.recordOperations(ub.GetOperations())
 	rpc.rememberBuffer(projectId, ub.GetBufferId())
 
-	// The host applies the operations; the guests receive them so that their
-	// buffers stay in sync. This mirrors Zed's own collab server: guests are
-	// updated directly, while the host is sent the request and answers it.
+	// Zed's collab server sends buffer operations to the guests directly and
+	// forwards them to the host, which applies them to the real file.
 	hostConnId := rpc.projectHostConnection(projectId)
 	isHost := hostConnId != 0 && hostConnId == pd.connId
-
-	if !isHost {
-		if forwarded, err := rpc.forwardToHost(pd, envelope, projectId); err != nil {
-			return err
-		} else if forwarded {
-			// The host answers the request; the response is relayed back to
-			// the guest by relayForwardedResponse.
-			return nil
-		}
-	}
 
 	relay := pb.Envelope{
 		Id:               pd.NextId(),
@@ -209,7 +198,21 @@ func (rpc *RpcHandler) handleUpdateBuffer(pd *ProtoDispatcher, envelope *pb.Enve
 			UpdateBuffer: ub,
 		},
 	}
-	rpc.broadcastBufferOperations(projectId, &relay, pd.userId)
+	if isHost {
+		// The host sent the edit: the guests need to catch up.
+		rpc.broadcastBufferOperations(projectId, &relay, pd.userId)
+	} else {
+		// A guest sent the edit: the other guests catch up, and the host
+		// applies the operations to the file.
+		rpc.broadcastBufferOperationsToGuests(projectId, &relay, pd.userId, hostConnId)
+		if forwarded, err := rpc.forwardToHost(pd, envelope, projectId); err != nil {
+			return err
+		} else if forwarded {
+			// The host answers the request; the response is relayed back to
+			// the guest by relayForwardedResponse.
+			return nil
+		}
+	}
 
 	resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 	return pd.SendProtobuf(&resp)

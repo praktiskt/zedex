@@ -134,6 +134,7 @@ func TestFileBufferGuestFlow(t *testing.T) {
 	assert.Equal(t, "fn main() {}", state.Payload.(*pb.Envelope_CreateBufferForPeer).CreateBufferForPeer.GetState().GetBaseText())
 
 	// The host edits the buffer; the guest must receive the operation.
+	// (The host's edits are broadcast to the guests directly.)
 	op := &pb.Operation{
 		Variant: &pb.Operation_Edit_{
 			Edit: &pb.Operation_Edit{
@@ -169,4 +170,85 @@ func TestFileBufferGuestFlow(t *testing.T) {
 	_, _, ops, version := state2.snapshot()
 	require.Len(t, ops, 1)
 	require.NotEmpty(t, version)
+}
+
+// TestFileBufferGuestEditIsForwardedToHost verifies that an edit made by a
+// guest is forwarded to the client that hosts the project, and that the
+// host's acknowledgement is relayed back to the guest.
+func TestFileBufferGuestEditIsForwardedToHost(t *testing.T) {
+	rpc := NewRpcHandler()
+	server := startTestRPCServer(t, &rpc)
+
+	host := dialTestClient(t, server, 6001)
+	guest := dialTestClient(t, server, 6002)
+
+	hello := &pb.Envelope{Payload: &pb.Envelope_Hello{Hello: &pb.Hello{PeerId: &pb.PeerId{Id: 1}}}}
+	host.send(hello)
+	guest.send(hello)
+
+	host.send(&pb.Envelope{
+		Id: 1,
+		Payload: &pb.Envelope_ShareProject{
+			ShareProject: &pb.ShareProject{Worktrees: []*pb.WorktreeMetadata{{Id: 1, RootName: "zedex"}}},
+		},
+	})
+	shareResp := waitForPayload(t, host, func(e *pb.Envelope) bool {
+		_, ok := e.Payload.(*pb.Envelope_ShareProjectResponse)
+		return ok
+	})
+	require.NotNil(t, shareResp)
+	projectId := shareResp.Payload.(*pb.Envelope_ShareProjectResponse).ShareProjectResponse.ProjectId
+
+	guest.send(&pb.Envelope{
+		Id:      1,
+		Payload: &pb.Envelope_JoinProject{JoinProject: &pb.JoinProject{ProjectId: projectId}},
+	})
+	joinResp := waitForPayload(t, guest, func(e *pb.Envelope) bool {
+		_, ok := e.Payload.(*pb.Envelope_JoinProjectResponse)
+		return ok
+	})
+	require.NotNil(t, joinResp)
+
+	// The guest edits a buffer it shares with the host.
+	op := &pb.Operation{
+		Variant: &pb.Operation_Edit_{
+			Edit: &pb.Operation_Edit{
+				ReplicaId:        2,
+				LamportTimestamp: 1,
+				Version:          []*pb.VectorClockEntry{{ReplicaId: 2, Timestamp: 1}},
+				Ranges:           []*pb.Range{{Start: 0, End: 0}},
+				NewText:          []string{"x"},
+			},
+		},
+	}
+	guest.send(&pb.Envelope{
+		Id: 2,
+		Payload: &pb.Envelope_UpdateBuffer{
+			UpdateBuffer: &pb.UpdateBuffer{
+				ProjectId:  projectId,
+				BufferId:   77,
+				Operations: []*pb.Operation{op},
+			},
+		},
+	})
+
+	forwarded := waitForPayload(t, host, func(e *pb.Envelope) bool {
+		ub, ok := e.Payload.(*pb.Envelope_UpdateBuffer)
+		return ok && len(ub.UpdateBuffer.GetOperations()) > 0
+	})
+	require.NotNil(t, forwarded, "the host did not receive the guest's edit")
+	assert.Equal(t, uint64(77), forwarded.Payload.(*pb.Envelope_UpdateBuffer).UpdateBuffer.GetBufferId())
+
+	// The host acknowledges; the acknowledgement is relayed to the guest.
+	host.send(&pb.Envelope{
+		Id:           500,
+		RespondingTo: proto.Uint32(forwarded.GetId()),
+		Payload:      &pb.Envelope_Ack{Ack: &pb.Ack{}},
+	})
+
+	ack := waitForPayload(t, guest, func(e *pb.Envelope) bool {
+		_, ok := e.Payload.(*pb.Envelope_Ack)
+		return ok
+	})
+	require.NotNil(t, ack, "the guest did not receive the relayed acknowledgement")
 }

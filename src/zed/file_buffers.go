@@ -184,6 +184,33 @@ func (rpc *RpcHandler) broadcastBufferOperations(projectId uint64, env *pb.Envel
 	rpc.broadcastToProject(projectId, env, except)
 }
 
+// broadcastBufferOperationsToGuests sends buffer operations to the guests of a
+// project, skipping the sender and the host (the host receives the request
+// separately so that it can apply the operations to the file).
+func (rpc *RpcHandler) broadcastBufferOperationsToGuests(projectId uint64, env *pb.Envelope, except int, hostConnId uint32) {
+	project := rpc.projects.get(projectId)
+	if project == nil {
+		return
+	}
+	for _, uid := range project.participants {
+		if int(uid) == except {
+			continue
+		}
+		for _, connId := range rpc.userConnections.Get(uid) {
+			if connId == hostConnId {
+				continue
+			}
+			pd := NewProtoDispatcherForConnection(rpc, connId)
+			if pd == nil {
+				continue
+			}
+			if err := pd.SendProtobuf(env); err != nil {
+				log.Errorf("broadcast buffer operations failed for connection %v: %v", connId, err)
+			}
+		}
+	}
+}
+
 // logProjectState is a small helper used while debugging project sync.
 func logProjectState(projectId uint64, buffers int) {
 	log.Debugf("project %v has %v buffers", projectId, buffers)
