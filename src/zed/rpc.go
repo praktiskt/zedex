@@ -57,6 +57,7 @@ type RpcHandler struct {
 	notifications    *notificationsStore
 	contacts         *contactsStore
 	projects         *projectsStore
+	rooms            *roomsStore
 	pendingForwards  utils.ConcurrentMap[uint32, forwardedRequest]
 }
 
@@ -209,6 +210,7 @@ func NewRpcHandler() RpcHandler {
 		notifications:     newNotificationsStore(),
 		contacts:          newContactsStore(),
 		projects:          newProjectsStore(),
+		rooms:             newRoomsStore(),
 		pendingForwards:   utils.NewConcurrentMap[uint32, forwardedRequest](),
 	}
 }
@@ -312,6 +314,32 @@ func (rpc *RpcHandler) NextId() uint32 {
 
 func (pd *ProtoDispatcher) NextId() uint32 {
 	return pd.rpc.NextId()
+}
+
+// channelsUpdate builds the channel list update that Zed expects, including
+// the participants of every channel. Without the participant list the
+// collaboration panel does not show who is in a channel.
+func (rpc *RpcHandler) channelsUpdate() *pb.UpdateChannels {
+	update := &pb.UpdateChannels{
+		Channels: rpc.channels.Values(),
+	}
+	for _, channel := range rpc.channels.Values() {
+		members := rpc.channelMembers.Get(channel.Id)
+		participantIds := []uint64{}
+		for _, member := range members {
+			if member.Kind == pb.ChannelMember_Member {
+				participantIds = append(participantIds, member.UserId)
+			}
+		}
+		if len(participantIds) == 0 {
+			continue
+		}
+		update.ChannelParticipants = append(update.ChannelParticipants, &pb.ChannelParticipants{
+			ChannelId:          channel.Id,
+			ParticipantUserIds: participantIds,
+		})
+	}
+	return update
 }
 
 func (rpc *RpcHandler) broadcastEnvelope(env *pb.Envelope, except int) {
@@ -532,9 +560,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_UpdateChannels{
-				UpdateChannels: &pb.UpdateChannels{
-					Channels: rpc.channels.Values(),
-				},
+				UpdateChannels: rpc.channelsUpdate(),
 			},
 		}
 		if err := pd.SendProtobuf(&resp); err != nil {
@@ -853,6 +879,24 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			return err
 		}
 
+	case *pb.Envelope_CreateRoom:
+		return rpc.handleCreateRoom(pd, &envelope)
+
+	case *pb.Envelope_JoinRoom:
+		return rpc.handleJoinRoom(pd, &envelope, msg)
+
+	case *pb.Envelope_LeaveRoom:
+		return rpc.handleLeaveRoom(pd, &envelope)
+
+	case *pb.Envelope_UpdateParticipantLocation:
+		return rpc.handleUpdateParticipantLocation(pd, &envelope, msg)
+
+	case *pb.Envelope_Follow:
+		return rpc.handleFollow(pd, &envelope, msg)
+
+	case *pb.Envelope_Unfollow:
+		return rpc.handleUnfollow(pd, &envelope)
+
 	case *pb.Envelope_ShareProject:
 		return rpc.handleShareProject(pd, &envelope, msg)
 
@@ -924,9 +968,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		channels := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
-				UpdateChannels: &pb.UpdateChannels{
-					Channels: rpc.channels.Values(),
-				},
+				UpdateChannels: rpc.channelsUpdate(),
 			},
 		}
 		if err := pd.SendProtobuf(&channels); err != nil {
@@ -954,9 +996,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		update := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
-				UpdateChannels: &pb.UpdateChannels{
-					Channels: rpc.channels.Values(),
-				},
+				UpdateChannels: rpc.channelsUpdate(),
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
@@ -1004,21 +1044,32 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			return m
 		})
 		rpc.sendUserChannels(uint64(pd.userId))
+
+		// A channel is backed by a room: joining the channel means joining the
+		// room, which is how the other participants see each other.
+		room := rpc.rooms.channelRoom(jc.ChannelId)
+		room.join(uint64(pd.userId), pd.peerId)
+		for _, member := range rpc.channelMembers.Get(jc.ChannelId) {
+			if member.Kind == pb.ChannelMember_Member {
+				room.join(member.UserId, nil)
+			}
+		}
+
 		update := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
-				UpdateChannels: &pb.UpdateChannels{
-					Channels: rpc.channels.Values(),
-				},
+				UpdateChannels: rpc.channelsUpdate(),
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
+		rpc.broadcastRoomUpdated(room, pd.userId)
+
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_JoinRoomResponse{
 				JoinRoomResponse: &pb.JoinRoomResponse{
-					Room:      &pb.Room{Id: jc.ChannelId},
+					Room:      room.toProto(),
 					ChannelId: proto.Uint64(jc.ChannelId),
 				},
 			},
@@ -1144,9 +1195,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		update := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
-				UpdateChannels: &pb.UpdateChannels{
-					Channels: rpc.channels.Values(),
-				},
+				UpdateChannels: rpc.channelsUpdate(),
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
@@ -1231,9 +1280,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		broadcast := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
-				UpdateChannels: &pb.UpdateChannels{
-					Channels: rpc.channels.Values(),
-				},
+				UpdateChannels: rpc.channelsUpdate(),
 			},
 		}
 		rpc.broadcastEnvelope(&broadcast, pd.userId)
@@ -1287,9 +1334,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		update := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
-				UpdateChannels: &pb.UpdateChannels{
-					Channels: rpc.channels.Values(),
-				},
+				UpdateChannels: rpc.channelsUpdate(),
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
@@ -1312,9 +1357,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		update := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
-				UpdateChannels: &pb.UpdateChannels{
-					Channels: rpc.channels.Values(),
-				},
+				UpdateChannels: rpc.channelsUpdate(),
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)
@@ -1339,9 +1382,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		update := pb.Envelope{
 			Id: pd.NextId(),
 			Payload: &pb.Envelope_UpdateChannels{
-				UpdateChannels: &pb.UpdateChannels{
-					Channels: rpc.channels.Values(),
-				},
+				UpdateChannels: rpc.channelsUpdate(),
 			},
 		}
 		rpc.broadcastEnvelope(&update, pd.userId)

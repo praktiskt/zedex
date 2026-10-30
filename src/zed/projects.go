@@ -56,6 +56,21 @@ func (rpc *RpcHandler) handleShareProject(pd *ProtoDispatcher, envelope *pb.Enve
 	project := rpc.projects.create(uint64(pd.userId), sp.GetWorktrees(), sp.GetFeatures())
 	project.participants = []uint64{uint64(pd.userId)}
 
+	// The project belongs to the room it was shared in. The other participants
+	// of that room learn about the project through the room state, which is
+	// how Zed shows shared projects in the collaboration panel.
+	room := rpc.rooms.get(sp.GetRoomId())
+	if room == nil {
+		room = rpc.rooms.create(0)
+	}
+	room.join(uint64(pd.userId), pd.peerId)
+	rootNames := []string{}
+	for _, wt := range sp.GetWorktrees() {
+		rootNames = append(rootNames, wt.GetRootName())
+	}
+	room.shareProject(uint64(pd.userId), project.id, rootNames)
+	rpc.broadcastRoomUpdated(room, pd.userId)
+
 	resp := pb.Envelope{
 		Id:           pd.NextId(),
 		RespondingTo: &envelope.Id,
@@ -117,6 +132,10 @@ func (rpc *RpcHandler) handleUnshareProject(pd *ProtoDispatcher, envelope *pb.En
 	project := rpc.projects.get(up.GetProjectId())
 	if project != nil {
 		project.removeParticipant(uint64(pd.userId))
+		for _, room := range rpc.rooms.all() {
+			room.unshareProject(uint64(pd.userId), up.GetProjectId())
+			rpc.broadcastRoomUpdated(room, pd.userId)
+		}
 	}
 	resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 	return pd.SendProtobuf(&resp)
