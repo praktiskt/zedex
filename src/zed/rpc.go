@@ -434,6 +434,35 @@ func CanonicalUserID(id uint64) uint64 {
 	return id & 0x7fffffff
 }
 
+// contactFor builds the contact entry Zed expects for a user.
+func (rpc *RpcHandler) contactFor(userId uint64) *pb.Contact {
+	return &pb.Contact{
+		UserId: userId,
+		Online: len(rpc.userConnections.Get(userId)) > 0,
+		Busy:   false,
+	}
+}
+
+// sendContactsUpdate sends a contact list update to every connection of a
+// user.
+func (rpc *RpcHandler) sendContactsUpdate(userId uint64, update *pb.UpdateContacts) {
+	for _, connId := range rpc.userConnections.Get(userId) {
+		pd := NewProtoDispatcherForConnection(rpc, connId)
+		if pd == nil {
+			continue
+		}
+		env := pb.Envelope{
+			Id: pd.NextId(),
+			Payload: &pb.Envelope_UpdateContacts{
+				UpdateContacts: update,
+			},
+		}
+		if err := pd.SendProtobuf(&env); err != nil {
+			log.Errorf("failed to send contacts update: %v", err)
+		}
+	}
+}
+
 func (rpc *RpcHandler) handleMessages(pd *ProtoDispatcher) {
 	conn := rpc.connections.Get(pd.connId)
 	if conn == nil {
@@ -516,7 +545,19 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		gu := envelope.Payload.(*pb.Envelope_GetUsers)
 		ru := []*pb.User{}
 		for _, uid := range gu.GetUsers.UserIds {
-			ru = append(ru, rpc.users.Get(uid))
+			user := rpc.users.Get(uid)
+			if user == nil {
+				// The user is unknown to the server; synthesize an entry so
+				// that the client can still show something.
+				name, _, _ := identityFor(uid)
+				user = &pb.User{
+					Id:          uid,
+					Username:    name,
+					GithubLogin: name,
+				}
+				rpc.users.Set(uid, user)
+			}
+			ru = append(ru, user)
 		}
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
@@ -711,19 +752,27 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 
 	case *pb.Envelope_RequestContact:
 		rc := msg.RequestContact
-		rpc.contacts.add(rc.GetResponderId(), uint64(pd.userId))
-		update := pb.Envelope{
-			Id: pd.NextId(),
-			Payload: &pb.Envelope_UpdateContacts{
-				UpdateContacts: &pb.UpdateContacts{
-					IncomingRequests: []*pb.IncomingContactRequest{{RequesterId: uint64(pd.userId)}},
+		responderId := rc.GetResponderId()
+		requesterId := uint64(pd.userId)
+		if responderId == requesterId {
+			resp := pb.Envelope{
+				RespondingTo: &envelope.Id,
+				Payload: &pb.Envelope_Error{
+					Error: &pb.Error{Message: "cannot add yourself as a contact"},
 				},
-			},
+			}
+			return pd.SendProtobuf(&resp)
 		}
-		responderPD := NewProtoDispatcher(rpc, int(rc.GetResponderId()))
-		if err := responderPD.SendProtobuf(&update); err != nil {
-			log.Errorf("failed to notify contact request: %v", err)
-		}
+		rpc.contacts.requestContact(requesterId, responderId)
+
+		// The requester sees the request as outgoing, the responder as incoming.
+		rpc.sendContactsUpdate(requesterId, &pb.UpdateContacts{
+			OutgoingRequests: []uint64{responderId},
+		})
+		rpc.sendContactsUpdate(responderId, &pb.UpdateContacts{
+			IncomingRequests: []*pb.IncomingContactRequest{{RequesterId: requesterId}},
+		})
+
 		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
@@ -732,22 +781,23 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 	case *pb.Envelope_RespondToContactRequest:
 		rr := msg.RespondToContactRequest
 		requesterId := rr.GetRequesterId()
-		if rr.GetResponse() == pb.ContactRequestResponse_Accept {
-			rpc.contacts.add(uint64(pd.userId), requesterId)
-			rpc.contacts.add(requesterId, uint64(pd.userId))
+		responderId := uint64(pd.userId)
+		accept := rr.GetResponse() == pb.ContactRequestResponse_Accept
+		wasContact := rpc.contacts.respondToContactRequest(responderId, requesterId, accept)
+
+		responderUpdate := &pb.UpdateContacts{
+			RemoveIncomingRequests: []uint64{requesterId},
 		}
-		update := pb.Envelope{
-			Id: pd.NextId(),
-			Payload: &pb.Envelope_UpdateContacts{
-				UpdateContacts: &pb.UpdateContacts{
-					Contacts: []*pb.Contact{{UserId: uint64(pd.userId)}},
-				},
-			},
+		requesterUpdate := &pb.UpdateContacts{
+			RemoveOutgoingRequests: []uint64{responderId},
 		}
-		requesterPD := NewProtoDispatcher(rpc, int(requesterId))
-		if err := requesterPD.SendProtobuf(&update); err != nil {
-			log.Errorf("failed to notify contact response: %v", err)
+		if wasContact {
+			responderUpdate.Contacts = []*pb.Contact{rpc.contactFor(requesterId)}
+			requesterUpdate.Contacts = []*pb.Contact{rpc.contactFor(responderId)}
 		}
+		rpc.sendContactsUpdate(responderId, responderUpdate)
+		rpc.sendContactsUpdate(requesterId, requesterUpdate)
+
 		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
@@ -755,22 +805,42 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 
 	case *pb.Envelope_RemoveContact:
 		rmc := msg.RemoveContact
-		rpc.contacts.remove(uint64(pd.userId), rmc.GetUserId())
+		otherId := rmc.GetUserId()
+		userId := uint64(pd.userId)
+		wasContact := rpc.contacts.removeContact(userId, otherId)
+
+		userUpdate := &pb.UpdateContacts{RemoveOutgoingRequests: []uint64{otherId}}
+		otherUpdate := &pb.UpdateContacts{RemoveIncomingRequests: []uint64{userId}}
+		if wasContact {
+			userUpdate = &pb.UpdateContacts{RemoveContacts: []uint64{otherId}}
+			otherUpdate = &pb.UpdateContacts{RemoveContacts: []uint64{userId}}
+		}
+		rpc.sendContactsUpdate(userId, userUpdate)
+		rpc.sendContactsUpdate(otherId, otherUpdate)
+
 		resp := pb.Envelope{RespondingTo: &envelope.Id, Payload: &pb.Envelope_Ack{Ack: &pb.Ack{}}}
 		if err := pd.SendProtobuf(&resp); err != nil {
 			return err
 		}
 
 	case *pb.Envelope_ShowContacts:
-		contacts := []*pb.Contact{}
-		for _, id := range rpc.contacts.list(uint64(pd.userId)) {
-			contacts = append(contacts, &pb.Contact{UserId: id})
+		// The client asks the server for the current contact state.
+		userId := uint64(pd.userId)
+		update := &pb.UpdateContacts{}
+		for _, id := range rpc.contacts.listContacts(userId) {
+			update.Contacts = append(update.Contacts, rpc.contactFor(id))
+		}
+		for _, id := range rpc.contacts.listIncoming(userId) {
+			update.IncomingRequests = append(update.IncomingRequests, &pb.IncomingContactRequest{RequesterId: id})
+		}
+		for _, id := range rpc.contacts.listOutgoing(userId) {
+			update.OutgoingRequests = append(update.OutgoingRequests, id)
 		}
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
 			Payload: &pb.Envelope_UpdateContacts{
-				UpdateContacts: &pb.UpdateContacts{Contacts: contacts},
+				UpdateContacts: update,
 			},
 		}
 		if err := pd.SendProtobuf(&resp); err != nil {

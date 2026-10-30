@@ -76,42 +76,6 @@ func (s *notificationsStore) remove(id uint64) bool {
 	return false
 }
 
-// contactsStore keeps the contacts (users that have accepted each other's
-// contact requests) known to the server.
-type contactsStore struct {
-	mu       sync.Mutex
-	contacts map[uint64]map[uint64]bool
-}
-
-func newContactsStore() *contactsStore {
-	return &contactsStore{contacts: map[uint64]map[uint64]bool{}}
-}
-
-func (s *contactsStore) add(userId uint64, contactId uint64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.contacts[userId] == nil {
-		s.contacts[userId] = map[uint64]bool{}
-	}
-	s.contacts[userId][contactId] = true
-}
-
-func (s *contactsStore) remove(userId uint64, contactId uint64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.contacts[userId], contactId)
-}
-
-func (s *contactsStore) list(userId uint64) []uint64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := []uint64{}
-	for id := range s.contacts[userId] {
-		out = append(out, id)
-	}
-	return out
-}
-
 // sharedProject is a project that has been shared into a call room.
 type sharedProject struct {
 	mu           sync.Mutex
