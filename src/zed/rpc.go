@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -59,6 +60,8 @@ type RpcHandler struct {
 	projects         *projectsStore
 	rooms            *roomsStore
 	pendingForwards  utils.ConcurrentMap[uint32, forwardedRequest]
+	// port is the port the server listens on, used to build avatar URLs.
+	port int
 }
 
 // channelBufferState holds the shared state of a channel's notes buffer.
@@ -342,6 +345,15 @@ func (rpc *RpcHandler) channelsUpdate() *pb.UpdateChannels {
 	return update
 }
 
+// avatarURL returns the URL of the avatar that zedex serves for a user.
+func (rpc *RpcHandler) avatarURL(userId uint64) string {
+	base := utils.EnvWithFallback("BASE_URL", "")
+	if base == "" {
+		base = "http://127.0.0.1:" + strconv.Itoa(rpc.port)
+	}
+	return fmt.Sprintf("%s/avatar/%d", base, userId)
+}
+
 func (rpc *RpcHandler) broadcastEnvelope(env *pb.Envelope, except int) {
 	for _, connId := range rpc.connections.Keys() {
 		conn := rpc.connections.Get(connId)
@@ -580,11 +592,14 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 					Id:          uid,
 					Username:    name,
 					GithubLogin: name,
+					AvatarUrl:   rpc.avatarURL(uid),
 				}
 				rpc.users.Set(uid, user)
 			}
 			ru = append(ru, user)
 		}
+		// Zed binary searches the user list, so it has to be sorted by id.
+		sort.Slice(ru, func(i, j int) bool { return ru[i].Id < ru[j].Id })
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
@@ -850,18 +865,35 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 		}
 
 	case *pb.Envelope_ShowContacts:
-		// The client asks the server for the current contact state.
+		// The client asks the server for the current contact state. Zed binary
+		// searches the contacts and requests by username, so both lists have
+		// to be sorted by username.
 		userId := uint64(pd.userId)
 		update := &pb.UpdateContacts{}
+		contacts := []*pb.Contact{}
 		for _, id := range rpc.contacts.listContacts(userId) {
-			update.Contacts = append(update.Contacts, rpc.contactFor(id))
+			contacts = append(contacts, rpc.contactFor(id))
 		}
+		sort.Slice(contacts, func(i, j int) bool {
+			return contacts[i].GetUserId() < contacts[j].GetUserId()
+		})
+		update.Contacts = contacts
+
+		incoming := []*pb.IncomingContactRequest{}
 		for _, id := range rpc.contacts.listIncoming(userId) {
-			update.IncomingRequests = append(update.IncomingRequests, &pb.IncomingContactRequest{RequesterId: id})
+			incoming = append(incoming, &pb.IncomingContactRequest{RequesterId: id})
 		}
+		sort.Slice(incoming, func(i, j int) bool {
+			return incoming[i].GetRequesterId() < incoming[j].GetRequesterId()
+		})
+		update.IncomingRequests = incoming
+
+		outgoing := []uint64{}
 		for _, id := range rpc.contacts.listOutgoing(userId) {
-			update.OutgoingRequests = append(update.OutgoingRequests, id)
+			outgoing = append(outgoing, id)
 		}
+		sort.Slice(outgoing, func(i, j int) bool { return outgoing[i] < outgoing[j] })
+		update.OutgoingRequests = outgoing
 		resp := pb.Envelope{
 			Id:           pd.NextId(),
 			RespondingTo: &envelope.Id,
@@ -1117,6 +1149,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 				Id:          req.UserId,
 				Username:    name,
 				GithubLogin: name,
+				AvatarUrl:   rpc.avatarURL(req.UserId),
 			})
 		}
 		inviteeChannels := pb.Envelope{
@@ -1509,6 +1542,7 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 			Id:          uint64(userId),
 			Username:    name,
 			GithubLogin: name,
+			AvatarUrl:   rpc.avatarURL(uint64(userId)),
 		}
 		rpc.users.Set(uint64(userId), u)
 		log.Debugf("added a user, current users: %v", len(rpc.users.Map()))

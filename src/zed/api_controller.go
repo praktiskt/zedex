@@ -42,14 +42,17 @@ func NewController(
 	zedClient Client,
 	port int,
 ) Controller {
+	rpc := NewRpcHandler()
+	rpc.port = port
+
 	return Controller{
 		zed:                  zedClient,
+		rpcHandler:           rpc,
 		enableExtensionStore: enableExtensionStore,
 		enableLogin:          enableLogin,
 		enableReleases:       enableReleases,
 		enableReleaseNotes:   enableReleaseNotes,
 		port:                 port,
-		rpcHandler:           NewRpcHandler(),
 	}
 }
 

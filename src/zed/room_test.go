@@ -160,3 +160,83 @@ func TestChannelJoinShowsParticipants(t *testing.T) {
 	}
 	assert.True(t, found, "the channel participants did not include the channel")
 }
+
+// TestChannelParticipantsHaveUsernamesAndAvatars verifies that the users
+// reported as channel participants carry a username and an avatar, so that
+// Zed can render them.
+func TestChannelParticipantsHaveUsernamesAndAvatars(t *testing.T) {
+	rpc := NewRpcHandler()
+	server := startTestRPCServer(t, &rpc)
+
+	a := dialTestClient(t, server, 8201)
+	b := dialTestClient(t, server, 8202)
+
+	hello := &pb.Envelope{Payload: &pb.Envelope_Hello{Hello: &pb.Hello{PeerId: &pb.PeerId{Id: 1}}}}
+	a.send(hello)
+	b.send(hello)
+
+	a.send(&pb.Envelope{
+		Id: 1,
+		Payload: &pb.Envelope_CreateChannel{
+			CreateChannel: &pb.CreateChannel{Name: "general"},
+		},
+	})
+	createResp := waitForPayload(t, a, func(e *pb.Envelope) bool {
+		_, ok := e.Payload.(*pb.Envelope_CreateChannelResponse)
+		return ok
+	})
+	require.NotNil(t, createResp)
+	channelId := createResp.Payload.(*pb.Envelope_CreateChannelResponse).CreateChannelResponse.Channel.Id
+
+	b.send(&pb.Envelope{
+		Id:      1,
+		Payload: &pb.Envelope_JoinChannel{JoinChannel: &pb.JoinChannel{ChannelId: channelId}},
+	})
+	require.NotNil(t, waitForPayload(t, b, func(e *pb.Envelope) bool {
+		_, ok := e.Payload.(*pb.Envelope_JoinRoomResponse)
+		return ok
+	}))
+
+	participants := waitForPayload(t, a, func(e *pb.Envelope) bool {
+		uc, ok := e.Payload.(*pb.Envelope_UpdateChannels)
+		if !ok {
+			return false
+		}
+		for _, entry := range uc.UpdateChannels.GetChannelParticipants() {
+			if entry.GetChannelId() == channelId && len(entry.GetParticipantUserIds()) > 0 {
+				return true
+			}
+		}
+		return false
+	})
+	require.NotNil(t, participants)
+
+	entries := participants.Payload.(*pb.Envelope_UpdateChannels).UpdateChannels.GetChannelParticipants()
+	var userIds []uint64
+	for _, entry := range entries {
+		if entry.GetChannelId() == channelId {
+			userIds = entry.GetParticipantUserIds()
+		}
+	}
+	require.NotEmpty(t, userIds)
+
+	a.send(&pb.Envelope{
+		Id:      2,
+		Payload: &pb.Envelope_GetUsers{GetUsers: &pb.GetUsers{UserIds: userIds}},
+	})
+	usersResp := waitForPayload(t, a, func(e *pb.Envelope) bool {
+		_, ok := e.Payload.(*pb.Envelope_UsersResponse)
+		return ok
+	})
+	require.NotNil(t, usersResp)
+	users := usersResp.Payload.(*pb.Envelope_UsersResponse).UsersResponse.GetUsers()
+	require.Len(t, users, len(userIds))
+
+	for i := 1; i < len(users); i++ {
+		assert.Less(t, users[i-1].GetId(), users[i].GetId(), "users must be sorted by id")
+	}
+	for _, u := range users {
+		assert.NotEmpty(t, u.GetUsername(), "a user without a username is invisible in the UI")
+		assert.NotEmpty(t, u.GetAvatarUrl(), "a user without an avatar is invisible in the UI")
+	}
+}
