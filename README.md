@@ -99,6 +99,8 @@ the same person keeps the same identity, the same name and the same avatar
 across restarts. The anonymous option stays on the sign in page next to the
 providers.
 
+The design and the protocol are in [docs/oauth.md](docs/oauth.md).
+
 ### Configuration
 
 ```json
