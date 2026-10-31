@@ -8,8 +8,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"math"
-	mrand "math/rand"
 	"net/http"
 	"os"
 	"path"
@@ -17,6 +15,7 @@ import (
 	"strings"
 
 	"zedex/utils"
+	"zedex/zed/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -30,6 +29,13 @@ type Controller struct {
 	enableLogin          bool
 	enableReleases       bool
 	enableReleaseNotes   bool
+
+	// auth authenticates the users. When it is nil every visitor gets an
+	// anonymous identity.
+	auth *auth.Manager
+
+	// authFlow keeps track of the sign ins that are in progress.
+	authFlow *auth.Flow
 
 	rpcHandler RpcHandler
 }
@@ -53,7 +59,14 @@ func NewController(
 		enableReleases:       enableReleases,
 		enableReleaseNotes:   enableReleaseNotes,
 		port:                 port,
+		authFlow:             auth.NewFlow(),
 	}
+}
+
+// SetAuth turns on the authentication of users.
+func (co *Controller) SetAuth(manager *auth.Manager) {
+	co.auth = manager
+	co.rpcHandler.SetAuth(manager)
 }
 
 func (co *Controller) Extensions(c *gin.Context) {
@@ -259,28 +272,6 @@ func randomToken() (string, error) {
 	return encodedToken, nil
 }
 
-func (co *Controller) NativeAppSignin(c *gin.Context) {
-	portStr := c.Query("native_app_port")
-	pubKey := c.Query("native_app_public_key")
-
-	enc, err := encryptStringV1(pubKey, "a")
-	if err != nil {
-		logrus.Error(err)
-		c.JSON(500, gin.H{
-			"error":   "Internal Server Error",
-			"message": err.Error(),
-		})
-		return
-	}
-
-	// user_id must be numeric, possibly a reference to github id
-	// https://api.github.com/users/<user>
-	// Zed models legacy_user_id as i32, so keep our generated ids within i32 range.
-	uid := mrand.Intn(math.MaxInt32)
-	host := fmt.Sprintf("http://127.0.0.1:%s/native_app_signin?user_id=%v&access_token=%s", portStr, uid, enc)
-	c.Redirect(302, host)
-}
-
 func (co *Controller) NativeAppSigninSucceeded(c *gin.Context) {
 	c.Data(200,
 		"text/html; charset=utf-8",
@@ -294,17 +285,23 @@ func (co *Controller) NativeAppSigninSucceeded(c *gin.Context) {
 }
 
 func (co *Controller) Account(c *gin.Context) {
+	heading := "Signed in to Zedex"
+	description := "You can close this tab and return to Zed."
+	if co.auth == nil {
+		heading = "Signed in anonymously to Zedex"
+		description = "No login required. You can close this tab and return to Zed."
+	}
+
 	c.Data(200,
 		"text/html; charset=utf-8",
 		[]byte(`<html>
 		<body style="background-color: #1e1e2e; color: #ffffff; text-align: center; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
 			<div>
-				<h1>Signed in anonymously to Zedex</h1>
-				<p>No GitHub login required. You can close this tab and return to Zed.</p>
+				<h1>`+heading+`</h1>
+				<p>`+description+`</p>
 			</div>
 		</body>
-		</html>`,
-		),
+		</html>`),
 	)
 }
 
@@ -375,6 +372,16 @@ func (co *Controller) Extension(c *gin.Context) {
 }
 
 func (co *Controller) ConnectWebSocket(c *gin.Context) {
+	if co.auth != nil {
+		if _, ok := co.claimsFromRequest(c); !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "Unauthorized",
+				"message": "the access token is missing or invalid",
+			})
+			return
+		}
+	}
+
 	upgrader := websocket.Upgrader{}
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -390,6 +397,29 @@ func (co *Controller) ConnectWebSocket(c *gin.Context) {
 }
 
 func (co *Controller) AuthenticatedUser(c *gin.Context) {
+	if co.auth != nil {
+		claims, ok := co.claimsFromRequest(c)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "Unauthorized",
+				"message": "the access token is missing or invalid",
+			})
+			return
+		}
+
+		uid := claims.UID
+		username := co.auth.Username(claims)
+		resp := NewGetAuthenticatedUsersResponseFor(UserIdentity{
+			LegacyUserID: int(uid),
+			Username:     username,
+			Name:         co.auth.Name(claims),
+			GithubLogin:  co.auth.GithubLogin(claims),
+			AvatarURL:    co.avatarURLFor(c, uid, co.auth.AvatarURL(claims)),
+		})
+		c.JSON(200, resp)
+		return
+	}
+
 	auth := c.Request.Header.Get("Authorization")
 	parts := strings.Split(auth, " ")
 
@@ -403,7 +433,11 @@ func (co *Controller) AuthenticatedUser(c *gin.Context) {
 	}
 
 	name, _, _ := identityFor(uint64(legacyUserId))
-	resp := NewGetAuthenticatedUsersResponseFor(int(legacyUserId), name, co.avatarURL(c, uint64(legacyUserId)))
+	resp := NewGetAuthenticatedUsersResponseFor(UserIdentity{
+		LegacyUserID: int(legacyUserId),
+		Username:     name,
+		AvatarURL:    co.avatarURL(c, uint64(legacyUserId)),
+	})
 	c.JSON(200, resp)
 }
 
@@ -414,4 +448,13 @@ func (co *Controller) avatarURL(c *gin.Context, userId uint64) string {
 		base = "http://" + host
 	}
 	return fmt.Sprintf("%s/avatar/%d", base, userId)
+}
+
+// avatarURLFor returns the picture to show for a user. It is the picture the
+// provider reports, or the identicon zedex generates when there is none.
+func (co *Controller) avatarURLFor(c *gin.Context, userId uint64, providerAvatar string) string {
+	if providerAvatar != "" {
+		return providerAvatar
+	}
+	return co.avatarURL(c, userId)
 }

@@ -136,7 +136,21 @@ func (co *Controller) Avatar(c *gin.Context) {
 		c.String(http.StatusBadRequest, "invalid user id")
 		return
 	}
-	name, initials, color := identityFor(userId)
+
+	// A user that signed in with a provider keeps the initials of the name
+	// of that account.
+	name := ""
+	if co.auth != nil {
+		if profile, ok := co.auth.Profile(userId); ok {
+			name = profile.Username
+		}
+	}
+	if name == "" {
+		name, _, _ = identityFor(userId)
+	}
+
+	initials := initialsFor(name)
+	color := colorFor(name)
 
 	svg := fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <rect width="128" height="128" rx="64" fill="%s"/>
@@ -144,5 +158,4 @@ func (co *Controller) Avatar(c *gin.Context) {
 </svg>`, color, initials)
 
 	c.Data(http.StatusOK, "image/svg+xml; charset=utf-8", []byte(svg))
-	_ = name
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"zedex/utils"
+	"zedex/zed/auth"
 	"zedex/zed/pb"
 
 	"github.com/0x6flab/namegenerator"
@@ -62,6 +63,14 @@ type RpcHandler struct {
 	pendingForwards  utils.ConcurrentMap[uint32, forwardedRequest]
 	// port is the port the server listens on, used to build avatar URLs.
 	port int
+	// auth authenticates the users. When it is nil every visitor gets an
+	// anonymous identity and the access token is not checked.
+	auth *auth.Manager
+}
+
+// SetAuth turns on the authentication of users.
+func (rpc *RpcHandler) SetAuth(manager *auth.Manager) {
+	rpc.auth = manager
 }
 
 // channelBufferState holds the shared state of a channel's notes buffer.
@@ -587,13 +596,7 @@ func (rpc *RpcHandler) handleMessage(pd *ProtoDispatcher, message []byte) error 
 			if user == nil {
 				// The user is unknown to the server; synthesize an entry so
 				// that the client can still show something.
-				name, _, _ := identityFor(uid)
-				user = &pb.User{
-					Id:          uid,
-					Username:    name,
-					GithubLogin: name,
-					AvatarUrl:   rpc.avatarURL(uid),
-				}
+				user = rpc.userRecord(uid, nil)
 				rpc.users.Set(uid, user)
 			}
 			ru = append(ru, user)
@@ -1493,22 +1496,40 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 	c.Request.Header.Add("Sec-WebSocket-Version", "13")
 	c.Request.Header.Add("Sec-WebSocket-Key", rpc.generateWebSocketKey())
 
-	auth := c.Request.Header.Get("Authorization")
-	if len(strings.Split(auth, " ")) != 2 {
+	authHeader := c.Request.Header.Get("Authorization")
+	if len(strings.Split(authHeader, " ")) != 2 {
 		log.Error("failed to get stuff from auth header")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get stuff from auth header"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "failed to get stuff from auth header"})
 		return
 	}
 
 	// NOTE: The other part of the map ([1]) is the decrypted data from the crypto challenge.
-	connIdStr := strings.Split(auth, " ")[0]
+	connIdStr := strings.Split(authHeader, " ")[0]
 	rawUserId, err := strconv.ParseUint(connIdStr, 10, 64)
 	if err != nil {
 		log.Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 	userId := int(CanonicalUserID(rawUserId))
+
+	// With authentication turned on the access token has to be a token
+	// zedex issued, and it has to belong to the user the header names.
+	var claims *auth.Claims
+	if rpc.auth != nil {
+		verified, err := rpc.auth.Verify(strings.Split(authHeader, " ")[1])
+		if err != nil {
+			log.Debugf("rejecting a connection with an invalid access token: %v", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid access token"})
+			return
+		}
+		if verified.UID != uint64(userId) {
+			log.Debugf("rejecting a connection whose token belongs to another user")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid access token"})
+			return
+		}
+		claims = verified
+	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -1536,15 +1557,8 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 	})
 
 	// TODO: Transaction
-	if !rpc.users.Exists(uint64(userId)) {
-		name, _, _ := identityFor(uint64(userId))
-		u := &pb.User{
-			Id:          uint64(userId),
-			Username:    name,
-			GithubLogin: name,
-			AvatarUrl:   rpc.avatarURL(uint64(userId)),
-		}
-		rpc.users.Set(uint64(userId), u)
+	if existing := rpc.users.Get(uint64(userId)); existing == nil || rpc.auth != nil {
+		rpc.users.Set(uint64(userId), rpc.userRecord(uint64(userId), claims))
 		log.Debugf("added a user, current users: %v", len(rpc.users.Map()))
 	}
 	pd := NewProtoDispatcherForConnection(rpc, connId)
@@ -1554,6 +1568,73 @@ func (rpc *RpcHandler) HandleRequest(c *gin.Context) {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+}
+
+// userRecord builds the entry the clients see for a user. When the user
+// signed in with a provider the record carries the identity of that account,
+// otherwise it carries the name zedex generated.
+func (rpc *RpcHandler) userRecord(userId uint64, claims *auth.Claims) *pb.User {
+	if rpc.auth != nil {
+		if claims != nil {
+			username := rpc.auth.Username(claims)
+			if username != "" {
+				githubLogin := rpc.auth.GithubLogin(claims)
+				if githubLogin == "" {
+					githubLogin = username
+				}
+				avatarURL := rpc.auth.AvatarURL(claims)
+				if avatarURL == "" {
+					avatarURL = rpc.avatarURL(userId)
+				}
+
+				user := &pb.User{
+					Id:          userId,
+					Username:    username,
+					GithubLogin: githubLogin,
+					AvatarUrl:   avatarURL,
+				}
+				if displayName := rpc.auth.Name(claims); displayName != "" {
+					name := displayName
+					user.Name = &name
+				}
+				return user
+			}
+		}
+
+		// The user signed in on this server, but the claims of this
+		// connection are not known.
+		if profile, ok := rpc.auth.Profile(userId); ok {
+			username := rpc.auth.UsernameFor(profile.Provider, profile.Username)
+			githubLogin := profile.GithubLogin
+			if githubLogin == "" {
+				githubLogin = username
+			}
+			avatarURL := profile.AvatarURL
+			if avatarURL == "" {
+				avatarURL = rpc.avatarURL(userId)
+			}
+
+			user := &pb.User{
+				Id:          userId,
+				Username:    username,
+				GithubLogin: githubLogin,
+				AvatarUrl:   avatarURL,
+			}
+			if profile.Name != "" {
+				name := profile.Name
+				user.Name = &name
+			}
+			return user
+		}
+	}
+
+	name, _, _ := identityFor(userId)
+	return &pb.User{
+		Id:          userId,
+		Username:    name,
+		GithubLogin: name,
+		AvatarUrl:   rpc.avatarURL(userId),
 	}
 }
 

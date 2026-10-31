@@ -1,0 +1,25 @@
+{
+  "public_url": "https://zed.example.com",
+  "identity_secret": "replace-with-a-secret",
+  "session_secret": "replace-with-another-secret",
+  "token_ttl_seconds": 0,
+  "allow_guest": true,
+  "providers": [
+    {
+      "name": "github",
+      "type": "github",
+      "display_name": "GitHub",
+      "client_id": "env:GITHUB_CLIENT_ID",
+      "client_secret": "env:GITHUB_CLIENT_SECRET",
+      "primary": true
+    },
+    {
+      "name": "okta",
+      "type": "oidc",
+      "display_name": "Company SSO",
+      "issuer": "https://example.okta.com/oauth2/default",
+      "client_id": "env:OKTA_CLIENT_ID",
+      "client_secret": "env:OKTA_CLIENT_SECRET"
+    }
+  ]
+}

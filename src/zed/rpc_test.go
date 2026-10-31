@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"zedex/zed/auth"
 	"zedex/zed/pb"
 
 	"github.com/gorilla/websocket"
@@ -91,7 +92,20 @@ func waitForPayload(t *testing.T, c *testClient, match func(*pb.Envelope) bool) 
 
 func startTestRPCServer(t *testing.T, rpc *RpcHandler) string {
 	t.Helper()
-	api := NewAPI(false, true, true, true, NewZedClient(1), 0)
+	return startTestRPCServerWithAuth(t, rpc, nil)
+}
+
+// startTestRPCServerWithAuth starts a collaboration server that checks the
+// access tokens of its clients.
+func startTestRPCServerWithAuth(t *testing.T, rpc *RpcHandler, manager *auth.Manager) string {
+	t.Helper()
+	api := NewAPI(Options{
+		EnableLogin:        true,
+		EnableReleases:     true,
+		EnableReleaseNotes: true,
+		Client:             NewZedClient(1),
+		Auth:               manager,
+	})
 	api.rpc = rpc
 	server := httptest.NewServer(api.Router())
 	t.Cleanup(server.Close)

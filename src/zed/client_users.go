@@ -109,26 +109,60 @@ type UsageLimit struct {
 	Unlimited bool   `json:"unlimited"`
 }
 
+// UserIdentity is the identity zedex reports for a user.
+type UserIdentity struct {
+	// LegacyUserID is the numeric id Zed knows the user by.
+	LegacyUserID int
+
+	// Username is the login the user goes by.
+	Username string
+
+	// Name is the display name of the user. It is optional.
+	Name string
+
+	// GithubLogin is the GitHub account of the user, if there is one.
+	GithubLogin string
+
+	// AvatarURL is the picture of the user.
+	AvatarURL string
+}
+
 // NewGetAuthenticatedUsersResponse builds the response Zed expects from
 // /client/users/me. The session name is shown in Zed's title bar (as the
 // organization name) so that users can tell their sessions apart.
 func NewGetAuthenticatedUsersResponse() GetAuthenticatedUserResponse {
-	return NewGetAuthenticatedUsersResponseFor(1, "zedex", "")
+	return NewGetAuthenticatedUsersResponseFor(UserIdentity{
+		LegacyUserID: 1,
+		Username:     "zedex",
+	})
 }
 
 // NewGetAuthenticatedUsersResponseFor builds a session specific response.
-func NewGetAuthenticatedUsersResponseFor(legacyUserId int, sessionName string, avatarURL string) GetAuthenticatedUserResponse {
+func NewGetAuthenticatedUsersResponseFor(identity UserIdentity) GetAuthenticatedUserResponse {
+	legacyUserId := identity.LegacyUserID
+	sessionName := identity.Username
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	orgID := OrganizationID("zedex")
+
+	githubLogin := identity.GithubLogin
+	if githubLogin == "" {
+		githubLogin = sessionName
+	}
+
+	var name *string
+	if identity.Name != "" {
+		name = proto.String(identity.Name)
+	}
+
 	return GetAuthenticatedUserResponse{
 		User: AuthenticatedUser{
 			IDV2:                     strconv.Itoa(legacyUserId),
 			LegacyUserID:             legacyUserId,
 			MetricsID:                "",
 			Username:                 sessionName,
-			AvatarURL:                avatarURL,
-			GithubLogin:              sessionName,
-			Name:                     nil,
+			AvatarURL:                identity.AvatarURL,
+			GithubLogin:              githubLogin,
+			Name:                     name,
 			IsStaff:                  true,
 			AcceptedTosAt:            proto.String(now),
 			HasConnectedToCollabOnce: true,
