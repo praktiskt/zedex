@@ -22,9 +22,7 @@ type OIDCProvider struct {
 	userInfoEndpoint      string
 
 	// discovery holds the lazily fetched OpenID configuration.
-	discovery     sync.Once
 	discovered    oidcConfiguration
-	discoveryErr  error
 	discoverMutex sync.Mutex
 }
 
@@ -80,25 +78,21 @@ func (p *OIDCProvider) configuration(ctx context.Context) (*oidcConfiguration, e
 		}, nil
 	}
 
-	p.discovery.Do(func() {
+	if p.discovered.AuthorizationEndpoint == "" {
 		if p.issuer == "" {
-			p.discoveryErr = fmt.Errorf("oidc: no issuer configured")
-			return
+			return nil, fmt.Errorf("oidc: no issuer configured")
 		}
 		endpoint := p.issuer + "/.well-known/openid-configuration"
 		var cfg oidcConfiguration
 		if err := getJSON(ctx, endpoint, nil, &cfg); err != nil {
-			p.discoveryErr = fmt.Errorf("oidc: discovering %s: %w", endpoint, err)
-			return
+			// A failed discovery is not remembered, the next sign in tries
+			// again.
+			return nil, fmt.Errorf("oidc: discovering %s: %w", endpoint, err)
 		}
 		if cfg.AuthorizationEndpoint == "" || cfg.TokenEndpoint == "" {
-			p.discoveryErr = fmt.Errorf("oidc: %s did not report the required endpoints", endpoint)
-			return
+			return nil, fmt.Errorf("oidc: %s did not report the required endpoints", endpoint)
 		}
 		p.discovered = cfg
-	})
-	if p.discoveryErr != nil {
-		return nil, p.discoveryErr
 	}
 
 	cfg := p.discovered
